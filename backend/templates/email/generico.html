@@ -1,13 +1,60 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, Helvetica, sans-serif; background:#f6f4f0; padding:24px;">
-  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:10px;padding:32px;border:1px solid #e6e2da;">
-    <h2 style="color:#1c1c1c;margin-top:0;">{{.assunto}}</h2>
-    <p style="color:#333;font-size:14px;line-height:1.6;">Olá, {{.nome_destinatario}}!</p>
-    <p style="color:#333;font-size:14px;line-height:1.6;">{{.mensagem}}</p>
-    <hr style="border:none;border-top:1px solid #e6e2da;margin:24px 0;">
-    <p style="color:#999;font-size:12px;">WebLEIA — LEIA / UESPI</p>
-  </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{{.assunto}}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0c0e16;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0e16;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#1d1f28;border-radius:20px;overflow:hidden;border:1px solid #434656;">
+
+          <tr>
+            <td style="background-color:#2e5bff;height:4px;line-height:4px;font-size:0;">&nbsp;</td>
+          </tr>
+
+          <tr>
+            <td align="center" style="background-color:#11131b;padding:32px 24px 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width:44px;height:44px;border-radius:12px;background-color:#2e5bff;text-align:center;vertical-align:middle;">
+                    <span style="display:block;font-size:20px;font-weight:800;color:#efefff;line-height:44px;">R</span>
+                  </td>
+                  <td style="padding-left:12px;text-align:left;">
+                    <div style="font-size:18px;font-weight:800;color:#e2e1ee;letter-spacing:-0.01em;">Resenha</div>
+                    <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8e90a2;">Reuniões · Jogos · Conversas</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <h1 style="margin:0 0 18px;color:#e2e1ee;font-size:20px;font-weight:700;">{{.assunto}}</h1>
+              <p style="margin:0 0 14px;color:#c4c5d9;font-size:14px;line-height:1.7;">
+                Olá, <strong style="color:#e2e1ee;">{{.nome_destinatario}}</strong>!
+              </p>
+              <p style="margin:0;color:#c4c5d9;font-size:14px;line-height:1.7;">
+                {{.mensagem}}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 32px;border-top:1px solid #2a2d3a;background-color:#171923;">
+              <p style="margin:0;color:#6d6f80;font-size:11px;text-align:center;">
+                Resenha — este é um e-mail automático, não responda.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

@@ -171,7 +171,7 @@ func (h *LoginHandler) sendVerificationEmail(email, nome string) error {
 			Dados: map[string]string{
 				"nome_destinatario": nome,
 				"link_verificacao":  link,
-				"logo_url":          h.frontendURL + "/webleia_logo.png",
+				"logo_url":          h.frontendURL + "/resenha_logo.png",
 			},
 			CriadoEm: time.Now(),
 		}
@@ -429,11 +429,11 @@ func (h *LoginHandler) EsqueciSenha(w http.ResponseWriter, r *http.Request) {
 			Tipo:         models.EmailTipoRedefinirSenha,
 			Destinatario: req.Email,
 			NomeDestino:  usuario.Nome,
-			Assunto:      "Redefinição de senha — WebLEIA",
+			Assunto:      "Redefinição de senha — " + h.appName,
 			Dados: map[string]string{
 				"nome_destinatario": usuario.Nome,
 				"link_redefinicao":  link,
-				"logo_url":          h.frontendURL + "/webleia_logo.png",
+				"logo_url":          h.frontendURL + "/resenha_logo.png",
 			},
 			CriadoEm: time.Now(),
 		}

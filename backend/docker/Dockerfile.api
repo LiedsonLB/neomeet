@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1
+
+# ---------- BUILD ----------
+# golang:1-alpine acompanha sempre a última patch da série 1.x — evita
+# quebrar o build caso o go.mod exija um Go mais novo que uma tag fixa
+# (o go.mod deste projeto pede "go 1.26.1").
+FROM golang:1-alpine AS build
+
+WORKDIR /src
+
+RUN apk add --no-cache git ca-certificates
+
+# Copia primeiro só os manifests para cachear o `go mod download` entre
+# builds (só invalida esse layer quando go.mod/go.sum mudam).
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# CGO_ENABLED=0 porque o driver MySQL (go-sql-driver/mysql) é 100% Go —
+# gera um binário estático, compatível com a imagem final alpine sem libc
+# de glibc.
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" \
+    -o /out/api ./cmd/api
+
+# ---------- RUNTIME ----------
+FROM alpine:3.20
+
+# ca-certificates: necessário pra chamadas HTTPS de saída (ex.: LiveKit,
+# provedores externos). tzdata: timestamps corretos em logs/exportações.
+RUN apk add --no-cache ca-certificates tzdata \
+    && adduser -D -H -u 10001 appuser
+
+WORKDIR /app
+
+COPY --from=build /out/api ./api
+
+# Pasta de uploads (fotos de perfil) — UPLOAD_DIR aponta pra cá em produção
+# (ver docker-compose.yml). As migrations do banco já vêm embutidas no
+# binário via go:embed, não precisam ser copiadas separadamente.
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 8080
+
+ENTRYPOINT ["./api"]

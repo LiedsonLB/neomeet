@@ -1,57 +1,76 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="margin:0;padding:0;font-family:Georgia,'Times New Roman',serif;background:#FAF8F3;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF8F3;padding:32px 16px;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Confirme seu e-mail</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0c0e16;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0e16;padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #DED6C3;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#1d1f28;border-radius:20px;overflow:hidden;border:1px solid #434656;">
 
-          <!-- Cabeçalho com logo -->
+          <!-- Barra de destaque -->
           <tr>
-            <td align="center" style="background:#16213E;padding:28px 24px;">
-              {{if .logo_url}}<img src="{{.logo_url}}" alt="WebLEIA" height="40" style="display:block;margin:0 auto 8px;">{{end}}
-              <span style="color:#FAF8F3;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">Plataforma de Escrita Guiada</span>
+            <td style="background-color:#2e5bff;height:4px;line-height:4px;font-size:0;">&nbsp;</td>
+          </tr>
+
+          <!-- Cabeçalho / marca -->
+          <tr>
+            <td align="center" style="background-color:#11131b;padding:32px 24px 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width:44px;height:44px;border-radius:12px;background-color:#2e5bff;text-align:center;vertical-align:middle;">
+                    <span style="display:block;font-size:20px;font-weight:800;color:#efefff;line-height:44px;">R</span>
+                  </td>
+                  <td style="padding-left:12px;text-align:left;">
+                    <div style="font-size:18px;font-weight:800;color:#e2e1ee;letter-spacing:-0.01em;">Resenha</div>
+                    <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8e90a2;">Reuniões · Jogos · Conversas</div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
           <!-- Corpo -->
           <tr>
-            <td style="padding:36px 32px 28px;">
-              <h1 style="margin:0 0 18px;color:#16213E;font-size:22px;font-weight:600;">Confirme seu e-mail</h1>
-              <p style="margin:0 0 14px;color:#3C4566;font-size:14px;line-height:1.7;font-family:Arial,Helvetica,sans-serif;">
-                Olá, <strong>{{.nome_destinatario}}</strong>!
+            <td style="padding:36px 32px 12px;">
+              <h1 style="margin:0 0 18px;color:#e2e1ee;font-size:22px;font-weight:700;">Confirme seu e-mail</h1>
+              <p style="margin:0 0 14px;color:#c4c5d9;font-size:14px;line-height:1.7;">
+                Olá, <strong style="color:#e2e1ee;">{{.nome_destinatario}}</strong>!
               </p>
-              <p style="margin:0 0 26px;color:#3C4566;font-size:14px;line-height:1.7;font-family:Arial,Helvetica,sans-serif;">
-                Para ativar sua conta no WebLEIA e começar a produzir textos, confirme seu e-mail clicando no botão abaixo.
-                O link é válido por <strong>48 horas</strong>. Se você não criou esta conta, pode ignorar este e-mail com tranquilidade.
+              <p style="margin:0 0 28px;color:#c4c5d9;font-size:14px;line-height:1.7;">
+                Falta pouco pra entrar nas suas salas no Resenha. Confirme seu e-mail no botão
+                abaixo para ativar a conta — o link vale por <strong style="color:#e2e1ee;">48 horas</strong>.
+                Se você não criou esta conta, pode ignorar esta mensagem.
               </p>
 
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 30px;">
                 <tr>
-                  <td align="center" style="border-radius:10px;background:#16213E;">
+                  <td align="center" bgcolor="#2e5bff" style="border-radius:999px;background-color:#2e5bff;">
                     <a href="{{.link_verificacao}}"
-                       style="display:inline-block;padding:14px 34px;color:#FAF8F3;text-decoration:none;
-                              font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;
-                              letter-spacing:0.02em;border-radius:10px;">
+                       style="display:inline-block;padding:14px 36px;color:#efefff;text-decoration:none;
+                              font-size:14px;font-weight:700;letter-spacing:0.01em;border-radius:999px;">
                       Confirmar meu e-mail
                     </a>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin:0;color:#3C4566;font-size:12px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
+              <p style="margin:0 0 28px;color:#8e90a2;font-size:12px;line-height:1.6;">
                 Se o botão não funcionar, copie e cole este link no navegador:<br>
-                <a href="{{.link_verificacao}}" style="color:#C1440E;word-break:break-all;">{{.link_verificacao}}</a>
+                <a href="{{.link_verificacao}}" style="color:#00dce5;word-break:break-all;">{{.link_verificacao}}</a>
               </p>
             </td>
           </tr>
 
           <!-- Rodapé -->
           <tr>
-            <td style="padding:20px 32px;border-top:1px solid #DED6C3;background:#FAF8F3;">
-              <p style="margin:0;color:#3C4566;font-size:11px;font-family:Arial,Helvetica,sans-serif;text-align:center;">
-                WebLEIA - LEIA / UESPI - Este é um e-mail automático, não responda.
+            <td style="padding:18px 32px;border-top:1px solid #2a2d3a;background-color:#171923;">
+              <p style="margin:0;color:#6d6f80;font-size:11px;text-align:center;">
+                Resenha — este é um e-mail automático, não responda.
               </p>
             </td>
           </tr>

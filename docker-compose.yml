@@ -1,45 +1,56 @@
+# Pipeline local/produção do Resenha.
+#
+# Duas camadas de configuração:
+#   - `.env` (raiz, fora do controle de versão) -> só variáveis usadas pelo
+#     PRÓPRIO docker-compose (senha do mysql/rabbitmq, tags de imagem, args
+#     de build do frontend). Veja `.env.example`.
+#   - `backend/.env` -> config da aplicação Go (SMTP, chaves, etc.), lida
+#     pelos containers `api` e `worker-email` via `env_file`. Veja
+#     `backend/.env.example`.
+#
+# DB_HOST/RABBIT_URL/LIVEKIT_URL do backend/.env apontam pra localhost (uso
+# local sem Docker); dentro do compose eles são sobrescritos no bloco
+# `environment:` de cada serviço para os nomes dos serviços do Docker.
+
 services:
-  postgres:
-    image: postgres:15
-    container_name: uespi-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: resenha-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_DB: uespi_connect
-      POSTGRES_USER: uespi_user
-      POSTGRES_PASSWORD: uespi123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-resenha_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-resenha}
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-resenha_root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
-      - studio-network
+      - resenha-network
 
-  # backend:
-  #   build: ./backend
-  #   container_name: uespi-backend
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./backend/.env
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - postgres
-  #     - livekit
-  #   networks:
-  #     - studio-network
-
-  # frontend:
-  #   build: ./frontend
-  #   container_name: uespi-frontend
-  #   restart: unless-stopped
-  #   environment:
-  #     VITE_GOOGLE_CLIENT_ID: 356082850571-rhdr5ji6dclahh910i04mr86cccoi012.apps.googleusercontent.com
-  #   ports:
-  #     - "80:80"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - studio-network
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: resenha-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-resenha}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # UI de administração
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - resenha-network
 
   livekit:
     image: livekit/livekit-server:latest
@@ -53,54 +64,98 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
     networks:
-      - studio-network
+      - resenha-network
 
-  neomeet-decoder:
-    build: ./gstreamer
-    container_name: neomeet-decoder
-    environment:
-      - LIVEKIT_URL=wss://neomeet.amsolution.net.br/livekit
-      - ROOM_NAME=minha-sala
-      - IDENTITY=tvbox-decoder
-      # - LIVEKIT_API_KEY= 
-      # - LIVEKIT_API_SECRET=
-    devices:
-      - /dev/snd:/dev/snd # Para áudio no Linux
+  # ---- API (Go) ---------------------------------------------------------
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-api:${IMAGE_TAG:-latest}
+    container_name: resenha-api
     restart: unless-stopped
-    stdin_open: true
-    tty: true
+    env_file:
+      - ./backend/.env
+    environment:
+      # Sobrescreve o que no backend/.env aponta pra localhost, usando os
+      # nomes dos serviços dentro da rede do compose.
+      DB_HOST: mysql
+      DB_PORT: 3306
+      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
+      LIVEKIT_URL: ws://livekit:7880
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - resenha-network
 
-  # agent:
-  #   build: ./agent
-  #   container_name: uespi-agent
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./agent/.env
-  #   depends_on:
-  #     - livekit
-  #     - backend
-  #   networks:
-  #     - studio-network
-  #   deploy:
-  #     restart_policy:
-  #       condition: on-failure
-  #       delay: 5s
-  #       max_attempts: 5
+  # ---- Worker de e-mail (Go) --------------------------------------------
+  worker-email:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.email
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
+    container_name: resenha-worker-email
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - resenha-network
 
-  # adminer:
-  #   image: adminer
-  #   container_name: uespi-adminer
+  # ---- Frontend (React + Nginx) ------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_APP_KEY: ${VITE_APP_KEY:-WEBTESTE}
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
+    container_name: resenha-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - resenha-network
+
+  # neomeet-decoder:
+  #   Depende da pasta ./gstreamer, que não existe neste checkout (bot de
+  #   decodificação de áudio pra bancada física do estúdio). Reative este
+  #   serviço quando ela for adicionada ao repositório/servidor — como
+  #   estava, o `build: ./gstreamer` quebrava qualquer `docker compose up`.
+  #   build: ./gstreamer
+  #   container_name: neomeet-decoder
+  #   environment:
+  #     - LIVEKIT_URL=wss://neomeet.amsolution.net.br/livekit
+  #     - ROOM_NAME=minha-sala
+  #     - IDENTITY=tvbox-decoder
+  #   devices:
+  #     - /dev/snd:/dev/snd
   #   restart: unless-stopped
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - studio-network
+  #   stdin_open: true
+  #   tty: true
 
 volumes:
-  postgres_data:
+  mysql_data:
+  rabbitmq_data:
+  uploads_data:
 
 networks:
-  studio-network:
+  resenha-network:
     driver: bridge

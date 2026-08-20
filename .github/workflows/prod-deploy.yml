@@ -1,137 +1,153 @@
-name: Deploy UESPI Connect
+name: Deploy Resenha
 
 on:
   push:
     branches: [ dev ]
 
-env:
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
-  VITE_LIVEKIT_URL: ${{ secrets.VITE_LIVEKIT_URL }}
-
 jobs:
 
-# ===============================
-# BUILD + PUSH IMAGES
-# ===============================
+# ==========================================================================
+# BUILD + PUSH DAS 3 IMAGENS (api, worker-email, frontend)
+# ==========================================================================
   build-and-push:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
-          username: ${{ env.DOCKERHUB_USERNAME }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # FRONTEND
-      - name: Build Frontend
-        working-directory: ./frontend
-        run: |
-          docker build \
-          --build-arg VITE_LIVEKIT_URL=ws://177.136.252.12:7880 \
-          -t $DOCKERHUB_USERNAME/uespi-frontend:latest .
-          docker push $DOCKERHUB_USERNAME/uespi-frontend:latest
-          
-      # BACKEND NODE
-      - name: Build Backend
-        working-directory: ./backend
-        run: |
-          docker build -t $DOCKERHUB_USERNAME/uespi-backend:latest .
-          docker push $DOCKERHUB_USERNAME/uespi-backend:latest
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
 
+      # ---- API -------------------------------------------------------
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/docker/Dockerfile.api
+          push: true
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-api:${{ github.sha }}
 
-# ===============================
-# DEPLOY SERVER
-# ===============================
+      # ---- Worker de e-mail -------------------------------------------
+      - name: Build & push worker-email
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/docker/Dockerfile.email
+          push: true
+          cache-from: type=gha,scope=worker-email
+          cache-to: type=gha,mode=max,scope=worker-email
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-worker-email:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-worker-email:${{ github.sha }}
+
+      # ---- Frontend -----------------------------------------------------
+      - name: Build & push Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_APP_KEY=${{ secrets.VITE_APP_KEY }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/resenha-frontend:${{ github.sha }}
+
+# ==========================================================================
+# DEPLOY NO SERVIDOR (self-hosted runner)
+# ==========================================================================
   deploy:
     needs: build-and-push
     runs-on: self-hosted
-
     steps:
-
       - uses: actions/checkout@v4
 
-      - name: Criar network
-        run: docker network create uespi_net || true
-
-      - name: Criar volumes
+      # ---- Gera backend/.env a partir dos Secrets ----------------------
+      # Importante: as credenciais NÃO vão para dentro da imagem (imagens
+      # de produção às vezes acabam sendo vistas por mais gente do que
+      # deveriam, e nesse caso qualquer um com `docker pull` conseguiria ler
+      # os segredos das camadas). Em vez disso o arquivo é escrito no disco
+      # do runner e entra no container em tempo de execução via `env_file`
+      # no docker-compose.yml — o efeito prático (variáveis disponíveis
+      # dentro do container) é o mesmo, mas a imagem publicada no Docker Hub
+      # continua "limpa".
+      - name: Gerar backend/.env
         run: |
-          docker volume create uespi_postgres || true
-          docker volume create livekit_data || true
+          cat > backend/.env <<EOF
+          APP_NAME=Resenha
+          PORT=8080
+          TOKEN_KEY=${{ secrets.TOKEN_KEY }}
+          APP_KEY=${{ secrets.APP_KEY }}
 
-# ===============================
-# POSTGRES
-# ===============================
-      - name: PostgreSQL
+          DB_HOST=mysql
+          DB_PORT=3306
+          DB_DATABASE=${{ secrets.MYSQL_DATABASE }}
+          DB_USERNAME=root
+          DB_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+
+          FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+
+          RABBIT_URL=amqp://${{ secrets.RABBITMQ_DEFAULT_USER }}:${{ secrets.RABBITMQ_DEFAULT_PASS }}@rabbitmq:5672/
+
+          MAIL_MAILER=smtp
+          MAIL_HOST=${{ secrets.MAIL_HOST }}
+          MAIL_PORT=${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_ENCRYPTION=tls
+          MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}
+          MAIL_FROM_NAME="Resenha"
+          VERIFICATION_SECRET=${{ secrets.VERIFICATION_SECRET }}
+
+          LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}
+          LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
+          LIVEKIT_URL=ws://livekit:7880
+
+          UPLOAD_DIR=/app/uploads
+          EOF
+
+      # ---- Gera o .env de infraestrutura (variáveis do compose) --------
+      - name: Gerar .env do docker-compose
         run: |
-          docker rm -f uespi-postgres || true
+          cat > .env <<EOF
+          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG=${{ github.sha }}
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+          RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_DEFAULT_USER }}
+          RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          VITE_APP_KEY=${{ secrets.VITE_APP_KEY }}
+          EOF
 
-          docker run -d \
-            --name uespi-postgres \
-            --restart always \
-            --network uespi_net \
-            -p 5432:5432 \
-            -e POSTGRES_DB=uespi_connect \
-            -e POSTGRES_USER=uespi_user \
-            -e POSTGRES_PASSWORD=uespi123 \
-            -v uespi_postgres:/var/lib/postgresql/data \
-            postgres:15
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-# ===============================
-# LIVEKIT
-# ===============================
-      - name: LiveKit Server
+      # ---- Sobe tudo via docker compose ---------------------------------
+      # As imagens de api/worker-email/frontend já foram construídas e
+      # publicadas no job anterior com a tag ${{ github.sha }}; aqui só
+      # puxamos essa mesma tag (via IMAGE_TAG no .env) e recriamos os
+      # containers. Sem --build: se usasse, o compose ignoraria a imagem
+      # publicada e recompilaria localmente no runner.
+      - name: Deploy (docker compose)
         run: |
-          docker rm -f livekit || true
+          docker compose pull
+          docker compose up -d --remove-orphans
 
-          docker run -d \
-            --name livekit \
-            --restart always \
-            --network uespi_net \
-            -p 7880:7880 \
-            -p 7881:7881 \
-            -p 7882:7882/udp \
-            -v ${{ github.workspace }}/livekit.yaml:/livekit.yaml \
-            livekit/livekit-server:latest \
-            --config /livekit.yaml
-
-# ===============================
-# BACKEND
-# ===============================
-      - name: Backend
-        run: |
-          docker rm -f uespi-backend || true
-
-          docker pull $DOCKERHUB_USERNAME/uespi-backend:latest
-
-          docker run -d \
-            --name uespi-backend \
-            --restart always \
-            --network uespi_net \
-            -p 3000:3000 \
-            -e NODE_ENV=production \
-            -e DB_HOST=uespi-postgres \
-            -e DB_PORT=5432 \
-            -e DB_USER=uespi_user \
-            -e DB_PASSWORD=uespi123 \
-            -e DB_NAME=uespi_connect \
-            $DOCKERHUB_USERNAME/uespi-backend:latest
-
-# ===============================
-# FRONTEND
-# ===============================
-      - name: Frontend
-        run: |
-          docker rm -f uespi-frontend || true
-
-          docker pull $DOCKERHUB_USERNAME/uespi-frontend:latest
-
-          docker run -d \
-            --name uespi-frontend \
-            --restart always \
-            --network uespi_net \
-            $DOCKERHUB_USERNAME/uespi-frontend:latest
+      - name: Limpar imagens antigas
+        run: docker image prune -f
