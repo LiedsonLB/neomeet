@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { MessagesSquare } from 'lucide-react';
 
 // Classes de campo compartilhadas pelas telas de auth
 export const authField = {

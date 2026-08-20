@@ -1,5 +1,5 @@
 # ---------- BUILD ----------
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
@@ -10,9 +10,11 @@ COPY . .
 
 ARG VITE_API_URL
 ARG VITE_APP_KEY
+ARG VITE_GOOGLE_CLIENT_ID
 
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_APP_KEY=$VITE_APP_KEY
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
 RUN npm run build
 
