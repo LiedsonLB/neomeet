@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:0;font-family:Georgia,'Times New Roman',serif;background:#FAF8F3;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF8F3;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #DED6C3;">
+
+          <!-- Cabecalho com logo -->
+          <tr>
+            <td align="center" style="background:#16213E;padding:28px 24px;">
+              {{if .logo_url}}<img src="{{.logo_url}}" alt="WebLEIA" height="40" style="display:block;margin:0 auto 8px;">{{end}}
+              <span style="color:#FAF8F3;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">Plataforma de Escrita Guiada</span>
+            </td>
+          </tr>
+
+          <!-- Corpo -->
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <h1 style="margin:0 0 18px;color:#16213E;font-size:22px;font-weight:600;">Redefinicao de senha</h1>
+              <p style="margin:0 0 14px;color:#3C4566;font-size:14px;line-height:1.7;font-family:Arial,Helvetica,sans-serif;">
+                Ola, <strong>{{.nome_destinatario}}</strong>!
+              </p>
+              <p style="margin:0 0 26px;color:#3C4566;font-size:14px;line-height:1.7;font-family:Arial,Helvetica,sans-serif;">
+                Recebemos um pedido para redefinir sua senha no WebLEIA. Clique no botao abaixo para
+                escolher uma nova senha. O link e valido por <strong>1 hora</strong>. Se voce nao
+                pediu isso, pode ignorar este e-mail com tranquilidade.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 30px;">
+                <tr>
+                  <td align="center" style="border-radius:10px;background:#C1440E;">
+                    <a href="{{.link_redefinicao}}"
+                       style="display:inline-block;padding:14px 34px;color:#FAF8F3;text-decoration:none;
+                              font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;
+                              letter-spacing:0.02em;border-radius:10px;">
+                      Redefinir minha senha
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0;color:#3C4566;font-size:12px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
+                Se o botao nao funcionar, copie e cole este link no navegador:<br>
+                <a href="{{.link_redefinicao}}" style="color:#C1440E;word-break:break-all;">{{.link_redefinicao}}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Rodape -->
+          <tr>
+            <td style="padding:20px 32px;border-top:1px solid #DED6C3;background:#FAF8F3;">
+              <p style="margin:0;color:#3C4566;font-size:11px;font-family:Arial,Helvetica,sans-serif;text-align:center;">
+                WebLEIA - LEIA / UESPI - Este e um e-mail automatico, nao responda.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

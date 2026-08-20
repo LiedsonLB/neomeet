@@ -14,32 +14,32 @@ services:
     networks:
       - studio-network
 
-  backend:
-    build: ./backend
-    container_name: uespi-backend
-    restart: unless-stopped
-    env_file:
-      - ./backend/.env
-    ports:
-      - "3000:3000"
-    depends_on:
-      - postgres
-      - livekit
-    networks:
-      - studio-network
+  # backend:
+  #   build: ./backend
+  #   container_name: uespi-backend
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ./backend/.env
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - postgres
+  #     - livekit
+  #   networks:
+  #     - studio-network
 
-  frontend:
-    build: ./frontend
-    container_name: uespi-frontend
-    restart: unless-stopped
-    environment:
-      VITE_GOOGLE_CLIENT_ID: 356082850571-rhdr5ji6dclahh910i04mr86cccoi012.apps.googleusercontent.com
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - studio-network
+  # frontend:
+  #   build: ./frontend
+  #   container_name: uespi-frontend
+  #   restart: unless-stopped
+  #   environment:
+  #     VITE_GOOGLE_CLIENT_ID: 356082850571-rhdr5ji6dclahh910i04mr86cccoi012.apps.googleusercontent.com
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - studio-network
 
   livekit:
     image: livekit/livekit-server:latest
@@ -49,25 +49,54 @@ services:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
-
     command: --config /etc/livekit.yaml
-
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
-
     networks:
       - studio-network
 
-  adminer:
-    image: adminer
-    container_name: uespi-adminer
+  neomeet-decoder:
+    build: ./gstreamer
+    container_name: neomeet-decoder
+    environment:
+      - LIVEKIT_URL=wss://neomeet.amsolution.net.br/livekit
+      - ROOM_NAME=minha-sala
+      - IDENTITY=tvbox-decoder
+      # - LIVEKIT_API_KEY= 
+      # - LIVEKIT_API_SECRET=
+    devices:
+      - /dev/snd:/dev/snd # Para áudio no Linux
     restart: unless-stopped
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    networks:
-      - studio-network
+    stdin_open: true
+    tty: true
+
+  # agent:
+  #   build: ./agent
+  #   container_name: uespi-agent
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ./agent/.env
+  #   depends_on:
+  #     - livekit
+  #     - backend
+  #   networks:
+  #     - studio-network
+  #   deploy:
+  #     restart_policy:
+  #       condition: on-failure
+  #       delay: 5s
+  #       max_attempts: 5
+
+  # adminer:
+  #   image: adminer
+  #   container_name: uespi-adminer
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - studio-network
 
 volumes:
   postgres_data:

@@ -2,7 +2,7 @@ name: Deploy UESPI Connect
 
 on:
   push:
-    branches: [ new-new-version ]
+    branches: [ dev ]
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -32,7 +32,6 @@ jobs:
         working-directory: ./frontend
         run: |
           docker build \
-          --build-arg VITE_GOOGLE_CLIENT_ID=${{ env.VITE_GOOGLE_CLIENT_ID }} \
           --build-arg VITE_LIVEKIT_URL=ws://177.136.252.12:7880 \
           -t $DOCKERHUB_USERNAME/uespi-frontend:latest .
           docker push $DOCKERHUB_USERNAME/uespi-frontend:latest

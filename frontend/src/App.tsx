@@ -1,105 +1,84 @@
-// frontend/src/App.tsx
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { GoogleOAuthProvider } from "@react-oauth/google";
-import { AppLayout } from "@/components/AppLayout";
-import LoginPage from "./pages/LoginPage";
-import Dashboard from "./pages/Dashboard";
-import ClassesPage from "./pages/ClassesPage";
-import MeetingPage from "./pages/MeetingPage";
-import MeetingsListPage from "./pages/MeetingsListPage";
-import EventsPage from "./pages/EventsPage";
-import ChatPage from "./pages/ChatPage";
-import FilesPage from "./pages/FilesPage";
-import CalendarPage from "./pages/CalendarPage";
-import ProfilePage from "./pages/ProfilePage";
-import AdminPage from "./pages/AdminPage";
-import NotFound from "./pages/NotFound";
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import Login from './pages/Login';
+import Cadastro from './pages/Cadastro';
+import Dashboard from './pages/Dashboard';
+import Salas from './pages/Salas';
+import SalaRoom from './pages/SalaRoom';
+import Perfil from './pages/Perfil';
+import RedefinirSenha from './pages/RedefinirSenha';
+import EsqueciSenha from './pages/EsqueciSenha';
+import ConfirmarEmail from './pages/ConfirmarEmail';
 
-const queryClient = new QueryClient();
+// Componente que redireciona usuarios logados para o dashboard
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { session, isLoading } = useAuth();
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-function ProtectedRoutes() {
-  const { isLoggedIn, role, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando sessão...</p>
-        </div>
-      </div>
-    );
+  if (isLoading) {
+    return <div>Carregando...</div>;
   }
 
-  if (!isLoggedIn) return <Navigate to="/login" replace />;
+  if (session) return <Navigate to="/painel" replace />;
 
+  return <>{children}</>;
+}
+
+// Componente que protege rotas que exigem autenticacao
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { session, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (!session) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function AppRoutes() {
   return (
     <Routes>
-      <Route path="/meeting/:roomName" element={<MeetingPage />} />
+      {/* Rotas publicas - apenas para nao logados */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={
+        <PublicRoute>
+          <Login />
+        </PublicRoute>
+      } />
+      <Route path="/cadastro" element={
+        <PublicRoute>
+          <Cadastro />
+        </PublicRoute>
+      } />
+      <Route path="/esqueci-senha" element={
+        <PublicRoute>
+          <EsqueciSenha />
+        </PublicRoute>
+      } />
+      <Route path="/redefinir-senha" element={
+        <PublicRoute>
+          <RedefinirSenha />
+        </PublicRoute>
+      } />
+      {/* Confirmação de e-mail: acessível mesmo sem sessão ativa (link do e-mail) */}
+      <Route path="/confirmar-email" element={<ConfirmarEmail />} />
 
-      <Route
-        path="*"
-        element={
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<MeetingsListPage />} />
-              <Route path="/classes" element={<ClassesPage />} />
-              <Route path="/meetings" element={<MeetingsListPage />} />
-              <Route path="/events" element={<EventsPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/files" element={<FilesPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              {role === "admin" && <Route path="/admin" element={<AdminPage />} />}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AppLayout>
-        }
-      />
+      {/* Rotas protegidas - apenas para logados */}
+      <Route path="/painel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/salas" element={<ProtectedRoute><Salas /></ProtectedRoute>} />
+      <Route path="/salas/:id" element={<ProtectedRoute><SalaRoom /></ProtectedRoute>} />
+      <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
-function AppContent() {
+export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<ProtectedRoutes />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }
-
-const App = () => (
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner
-          position="top-center"
-          richColors
-          duration={4000}
-          toastOptions={{
-            style: {
-              zIndex: 9999,
-            },
-            className: 'sonner-toast',
-          }}
-        />
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </GoogleOAuthProvider>
-);
-
-export default App;

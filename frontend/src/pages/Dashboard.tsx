@@ -1,209 +1,190 @@
-import {
-  Clock,
-  Users,
-  BookOpen,
-  Bell,
-  Video,
-  FileText,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Users, ArrowRight, Compass, Sparkles } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
+import { salaApi, ApiError } from '../api/client';
+import type { Sala } from '../api/types';
+import AppShell from '../layout/AppShell';
 
-const upcomingClasses = [
-  { name: "Estrutura de Dados", professor: "Prof. Ana Souza", time: "08:00", status: "Em 15 min", urgent: true },
-  { name: "Banco de Dados II", professor: "Prof. Carlos Lima", time: "10:00", status: "Em 2h 15min", urgent: false },
-  { name: "Eng. de Software", professor: "Prof. Maria Santos", time: "14:00", status: "Hoje 14:00", urgent: false },
-];
+const CATEGORIES = ['Todos', 'Jogos', 'Tech', 'Educação'];
 
-const announcements = [
-  { title: "Prova de Estrutura de Dados remarcada", course: "Estrutura de Dados", time: "2h atrás" },
-  { title: "Material novo disponível", course: "Banco de Dados II", time: "5h atrás" },
-  { title: "Projeto final: grupos definidos", course: "Eng. de Software", time: "1 dia atrás" },
-];
+function primeiroNome(nome?: string) {
+  return (nome ?? '').split(' ')[0] || 'visitante';
+}
 
-const recentFiles = [
-  { name: "Aula 08 - Árvores Binárias.pdf", course: "Estrutura de Dados", size: "2.4 MB" },
-  { name: "Projeto Final - Requisitos.docx", course: "Eng. de Software", size: "890 KB" },
-  { name: "SQL Avançado - Slides.pptx", course: "Banco de Dados II", size: "5.1 MB" },
-];
+export default function Dashboard() {
+  const { session, usuario } = useAuth();
+  const navigate = useNavigate();
 
-const Dashboard = () => {
-  const { user, role } = useAuth();
+  const [salas, setSalas] = useState<Sala[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  const [categoria, setCategoria] = useState('Todos');
 
-  const statsForRole = role === "admin"
-    ? [
-        { label: "Total de Usuários", value: "2.847", icon: Users, color: "bg-primary/10 text-primary" },
-        { label: "Cursos Ativos", value: "156", icon: BookOpen, color: "bg-secondary/10 text-secondary" },
-        { label: "Reuniões Hoje", value: "34", icon: Video, color: "bg-accent/10 text-accent" },
-        { label: "Eventos Próximos", value: "12", icon: Clock, color: "bg-warning/10 text-warning" },
-      ]
-    : role === "professor"
-    ? [
-        { label: "Minhas Turmas", value: "4", icon: BookOpen, color: "bg-primary/10 text-primary" },
-        { label: "Alunos Totais", value: "155", icon: Users, color: "bg-secondary/10 text-secondary" },
-        { label: "Aulas Hoje", value: "3", icon: Video, color: "bg-accent/10 text-accent" },
-        { label: "Materiais Enviados", value: "48", icon: FileText, color: "bg-warning/10 text-warning" },
-      ]
-    : [
-        { label: "Disciplinas Matriculadas", value: "6", icon: BookOpen, color: "bg-primary/10 text-primary" },
-        { label: "Taxa de Frequência", value: "92%", icon: CheckCircle2, color: "bg-secondary/10 text-secondary" },
-        { label: "Reuniões Agendadas", value: "3", icon: Video, color: "bg-accent/10 text-accent" },
-        { label: "Tarefas Pendentes", value: "8", icon: Clock, color: "bg-warning/10 text-warning" },
-      ];
+  useEffect(() => {
+    if (!session) return;
+    let mounted = true;
+    salaApi
+      .list(session)
+      .then(list => mounted && setSalas(list))
+      .catch(err => mounted && setError(err instanceof ApiError ? err.message : 'Erro ao carregar comunidades.'))
+      .finally(() => mounted && setLoading(false));
+    return () => { mounted = false; };
+  }, [session?.id]);
+
+  const minhasSalas = useMemo(
+    () => salas.filter(s => s.criado_por === session?.id),
+    [salas, session?.id],
+  );
+
+  const descobrir = useMemo(() => {
+    return salas
+      .filter(s => s.criado_por !== session?.id)
+      .filter(s => categoria === 'Todos' || s.categoria === categoria)
+      .filter(s => !busca.trim() || s.nome.toLowerCase().includes(busca.trim().toLowerCase()));
+  }, [salas, session?.id, categoria, busca]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Bem-vindo(a), {user?.name?.split(" ")[0]}! 👋</h1>
-        <p className="text-muted-foreground mt-1">Veja o que está acontecendo hoje no UESPI Hub.</p>
-      </div>
+    <AppShell>
+      {/* ---- Header ---- */}
+      <header className="flex flex-col items-start justify-between gap-stack-md md:flex-row md:items-center">
+        <div>
+          <h1 className="text-headline-lg-mobile text-on-surface tracking-tight md:text-headline-xl">
+            Olá, <span className="gradient-text">{primeiroNome(usuario?.nome)}</span>
+          </h1>
+          <p className="mt-2 text-body-md text-on-surface-variant md:text-body-lg">
+            Pronto para a resenha de hoje?
+          </p>
+        </div>
+        <div className="group relative w-full md:w-96">
+          <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-outline transition-colors group-focus-within:text-primary" />
+          <input
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar resenhas, salas ou pessoas..."
+            className="w-full rounded-full border border-outline-variant bg-surface-container py-3 pl-12 pr-4 text-body-md text-on-surface placeholder-outline-variant transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </header>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsForRole.map((stat) => (
-          <Card key={stat.label} className="card-shadow hover:card-shadow-hover transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
+      {error && (
+        <p className="rounded-lg border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-on-error-container">{error}</p>
+      )}
+
+      {/* ---- Suas comunidades ---- */}
+      <section className="flex flex-col gap-stack-md">
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
+            <Users size={20} className="text-primary" /> Suas comunidades
+          </h2>
+          <button type="button" onClick={() => navigate('/salas')} className="text-label-md text-tertiary transition-colors hover:text-tertiary-fixed-dim">
+            Ver todas
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-on-surface-variant">Carregando…</p>
+        ) : minhasSalas.length === 0 ? (
+          <div className="glass-card flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-variant py-10 text-center">
+            <Sparkles size={22} className="text-outline" />
+            <p className="text-sm text-on-surface-variant">Você ainda não criou nenhuma comunidade.</p>
+            <button type="button" onClick={() => navigate('/salas?nova=1')} className="btn-primary mt-2 px-5 py-2 text-sm">
+              Criar minha primeira sala
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {minhasSalas.map(sala => (
+              <div key={sala.id} className="glass-card group relative flex flex-col gap-stack-md overflow-hidden rounded-xl p-4 transition-all duration-300 hover:shadow-[0px_4px_20px_rgba(46,91,255,0.15)]">
+                <div className="absolute -left-1 top-1/2 h-12 w-2 -translate-y-1/2 rounded-r-full bg-tertiary opacity-80 shadow-[0_0_10px_#00dce5]" />
+                <div className="flex items-center gap-4 pl-2">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-surface-variant bg-surface-container-highest text-lg font-bold text-primary">
+                    {sala.nome.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-body-lg font-bold leading-tight text-on-surface">{sala.nome}</h3>
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-tertiary" />
+                      <span className="text-label-sm text-tertiary">{sala.participantes_online ?? 0} online</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="line-clamp-2 text-label-md text-on-surface-variant">{sala.descricao ?? 'Sem descrição.'}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/salas/${sala.id}`)}
+                  className="mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high py-2.5 text-label-md text-on-surface transition-all hover:border-transparent hover:bg-primary-container hover:text-on-primary-container"
+                >
+                  Entrar na sala <ArrowRight size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ---- Descobrir comunidades ---- */}
+      <section className="flex flex-col gap-stack-md">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
+            <Compass size={20} className="text-primary" /> Descobrir comunidades
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {CATEGORIES.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategoria(c)}
+                className={
+                  categoria === c
+                    ? 'rounded-full bg-primary px-4 py-2 text-label-md text-on-primary shadow-[0_0_10px_rgba(184,195,255,0.2)] transition-colors'
+                    : 'rounded-full border border-outline-variant bg-surface-container px-4 py-2 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface'
+                }
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-on-surface-variant">Carregando…</p>
+        ) : descobrir.length === 0 ? (
+          <p className="text-sm text-on-surface-variant">Nenhuma comunidade encontrada.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-gutter md:grid-cols-3 lg:grid-cols-4">
+            {descobrir.map(sala => (
+              <div
+                key={sala.id}
+                onClick={() => navigate(`/salas/${sala.id}`)}
+                className="glass-card group flex cursor-pointer flex-col gap-4 rounded-2xl border border-outline-variant p-5 transition-colors hover:border-outline"
+              >
+                <div className="relative h-32 w-full overflow-hidden rounded-lg bg-surface-container-high">
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-container/40 via-secondary-container/30 to-tertiary-container/40 text-2xl font-bold text-on-surface opacity-80 transition-transform duration-500 group-hover:scale-105">
+                    {sala.nome.slice(0, 2).toUpperCase()}
+                  </div>
+                  {sala.categoria && (
+                    <div className="absolute right-2 top-2 rounded bg-surface/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface backdrop-blur">
+                      {sala.categoria}
+                    </div>
+                  )}
+                </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
+                  <h3 className="text-body-lg font-bold text-on-surface">{sala.nome}</h3>
+                  <p className="mt-1 line-clamp-2 text-label-md text-on-surface-variant">{sala.descricao ?? 'Sem descrição.'}</p>
                 </div>
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${stat.color}`}>
-                  <stat.icon className="w-5 h-5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Próximas aulas */}
-        <Card className="lg:col-span-2 card-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Próximas Aulas</CardTitle>
-              <Button variant="ghost" size="sm" className="text-primary">
-                Ver todas <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingClasses.map((cls) => (
-              <div key={cls.name} className="flex items-center justify-between p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${cls.urgent ? "gradient-primary" : "bg-muted"}`}>
-                    <BookOpen className={`w-5 h-5 ${cls.urgent ? "text-primary-foreground" : "text-muted-foreground"}`} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{cls.name}</p>
-                    <p className="text-xs text-muted-foreground">{cls.professor}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={cls.urgent ? "default" : "secondary"} className={cls.urgent ? "gradient-primary border-0" : ""}>
-                    {cls.status}
-                  </Badge>
-                  <Button size="sm" variant={cls.urgent ? "default" : "outline"} className={cls.urgent ? "gradient-primary border-0" : ""}>
-                    Entrar
-                  </Button>
+                <div className="mt-auto flex items-center justify-between text-on-surface-variant">
+                  <span className="flex items-center gap-1 text-label-sm">
+                    <Users size={14} /> {sala.participantes_online ?? 0} online
+                  </span>
+                  <ArrowRight size={18} className="transition-all group-hover:translate-x-1 group-hover:text-primary" />
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-
-        {/* Frequência */}
-        <Card className="card-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold">Sua Frequência</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center">
-              <div className="relative w-32 h-32">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
-                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" strokeDasharray="92, 100" strokeLinecap="round" />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-foreground">92%</span>
-                  <span className="text-xs text-muted-foreground">Geral</span>
-                </div>
-              </div>
-            </div>
-            {[
-              { name: "Estrutura de Dados", pct: 95 },
-              { name: "Banco de Dados II", pct: 88 },
-              { name: "Eng. de Software", pct: 93 },
-            ].map((c) => (
-              <div key={c.name} className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">{c.name}</span>
-                  <span className="font-medium text-foreground">{c.pct}%</span>
-                </div>
-                <Progress value={c.pct} className="h-2" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Avisos */}
-        <Card className="card-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Avisos</CardTitle>
-              <Badge variant="secondary">3 novos</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {announcements.map((a) => (
-              <div key={a.title} className="flex gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer">
-                <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-4 h-4 text-accent" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
-                  <p className="text-xs text-muted-foreground">{a.course} · {a.time}</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Arquivos recentes */}
-        <Card className="card-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold">Arquivos Recentes</CardTitle>
-              <Button variant="ghost" size="sm" className="text-primary">
-                Ver todos <ArrowRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentFiles.map((f) => (
-              <div key={f.name} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer">
-                <div className="w-9 h-9 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4 text-destructive" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">{f.name}</p>
-                  <p className="text-xs text-muted-foreground">{f.course} · {f.size}</p>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+          </div>
+        )}
+      </section>
+    </AppShell>
   );
-};
-
-export default Dashboard;
+}

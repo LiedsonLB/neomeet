@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ===== Design tokens — "Resenha" (Glass-Tech, dark) ===== */
+
+  /* Surfaces */
+  --rs-bg: #11131b;
+  --rs-surface: #11131b;
+  --rs-surface-low: #191b24;
+  --rs-surface-c: #1d1f28;
+  --rs-surface-ch: #282a32;
+  --rs-surface-chh: #33343e;
+  --rs-surface-lowest: #0c0e16;
+  --rs-surface-bright: #373942;
+
+  /* On-surface */
+  --rs-on-surface: #e2e1ee;
+  --rs-on-surface-var: #c4c5d9;
+  --rs-outline: #8e90a2;
+  --rs-outline-var: #434656;
+
+  /* Primary (Electric Blue) */
+  --rs-primary: #b8c3ff;
+  --rs-on-primary: #002388;
+  --rs-primary-c: #2e5bff;
+  --rs-on-primary-c: #efefff;
+  --rs-inverse-primary: #124af0;
+
+  /* Secondary (Violet) */
+  --rs-secondary: #d4bbff;
+  --rs-on-secondary: #41008b;
+  --rs-secondary-c: #6c04de;
+  --rs-on-secondary-c: #d4baff;
+
+  /* Tertiary (Ciano) */
+  --rs-tertiary: #00dce5;
+  --rs-on-tertiary: #003739;
+  --rs-tertiary-c: #00797e;
+  --rs-on-tertiary-c: #bbfbff;
+
+  /* Error */
+  --rs-error: #ffb4ab;
+  --rs-on-error: #690005;
+  --rs-error-c: #93000a;
+  --rs-on-error-c: #ffdad6;
+
+  /* Amber (avisos "em andamento" — não existe no design system oficial,
+     mantido em tom âmbar coerente com a paleta escura) */
+  --rs-amber: #ffcb7a;
+  --rs-amber-bg: rgba(255, 203, 122, 0.14);
+
+  /* ============================================================
+     Aliases de compatibilidade — várias telas mais antigas do app
+     (SalaRoom, MinhasProducoes, GêneroTextualList, Ranking,
+     EscritaGuiada, Alunos, etc.) ainda usam os nomes de variável do
+     tema claro original ("--ink", "--paper", "--pen"...). Em vez de
+     deixá-las quebradas/sem cor enquanto essas páginas não são
+     redesenhadas uma a uma, mapeamos os nomes antigos para os novos
+     tokens escuros do Resenha — assim tudo herda a mesma paleta.
+     ============================================================ */
+  --paper: var(--rs-bg);
+  --paper-2: var(--rs-surface-c);
+  --white: var(--rs-surface-c);
+  --ink: var(--rs-on-surface);
+  --ink-soft: var(--rs-on-surface-var);
+  --line: var(--rs-outline-var);
+  --pen: var(--rs-primary);
+  --sage: var(--rs-tertiary);
+  --sage-bg: rgba(0, 220, 229, 0.12);
+  --amber: var(--rs-amber);
+  --amber-bg: var(--rs-amber-bg);
+  --danger: var(--rs-error);
+  --danger-bg: rgba(255, 180, 171, 0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--rs-bg);
+  color: var(--rs-on-surface);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--rs-surface-low); }
+::-webkit-scrollbar-thumb { background: var(--rs-outline-var); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--rs-outline); }
+
+/* Animations */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+
+.fade-in { animation: fadeIn 0.22s ease both; }
+.slide-in { animation: slideIn 0.22s ease both; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+
+/* Input reset */
+input, textarea, select, button {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Focus ring global */
+:focus-visible {
+  outline: 2px solid var(--rs-primary-c);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* Painel translúcido com blur — usado em cards, modais e barras */
+  .glass-panel {
+    background: rgba(22, 27, 46, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-card {
+    background: rgba(25, 27, 36, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .gradient-text {
+    background: linear-gradient(90deg, #b8c3ff 0%, #00dce5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-inverse-primary via-primary-container to-secondary-container px-5 py-2.5 text-sm font-semibold text-on-primary-container shadow-[0_4px_14px_0_rgba(46,91,255,0.35)] transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 disabled:translate-y-0;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high px-5 py-2.5 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-primary/40 bg-transparent px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10;
+  }
+
+  .field-input {
+    @apply block w-full rounded-lg border border-outline-variant bg-surface-container-highest px-3.5 py-2.5 text-sm text-on-surface placeholder-outline outline-none transition-colors focus:border-primary-container focus:ring-1 focus:ring-primary-container;
+  }
+
+  .field-label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-on-surface-variant;
+  }
+}
