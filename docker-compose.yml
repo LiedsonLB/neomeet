@@ -68,33 +68,39 @@ services:
 
   # ---- API (Go) ---------------------------------------------------------
   api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.api
-    image: ${DOCKERHUB_USERNAME:-local}/resenha-api:${IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
     container_name: resenha-api
     restart: unless-stopped
-    env_file:
-      - ./backend/.env
     environment:
-      # Sobrescreve o que no backend/.env aponta pra localhost, usando os
-      # nomes dos serviços dentro da rede do compose.
-      DB_HOST: mysql
-      DB_PORT: 3306
-      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
-      LIVEKIT_URL: ws://livekit:7880
-      UPLOAD_DIR: /app/uploads
-    ports:
-      - "8080:8080"
+      - APP_NAME=Resenha
+      - PORT=8080
+      - TOKEN_KEY=${TOKEN_KEY:-change-me}
+      - APP_KEY=${APP_KEY:-WEBTESTE}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - RABBIT_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_ENCRYPTION=tls
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Resenha}
+      - VERIFICATION_SECRET=${VERIFICATION_SECRET}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_URL=ws://livekit:7880
+      - UPLOAD_DIR=/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      livekit:
-        condition: service_started
-    volumes:
-      - uploads_data:/app/uploads
     networks:
       - resenha-network
 
