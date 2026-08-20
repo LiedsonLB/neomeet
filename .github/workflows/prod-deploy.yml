@@ -2,7 +2,7 @@ name: Deploy Resenha
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ better-new-version ]
 
 jobs:
 
