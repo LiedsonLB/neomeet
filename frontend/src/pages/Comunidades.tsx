@@ -24,6 +24,7 @@ export default function Comunidades() {
       setComunidades(await comunidadeApi.list(session));
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao carregar comunidades.');
+      setComunidades([]);
     } finally {
       setLoading(false);
     }
