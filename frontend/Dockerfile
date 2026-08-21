@@ -30,6 +30,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf.template
 
 # BACKEND_HOST padrão aponta para o serviço "api" da rede do compose
-ENV BACKEND_HOST=resenha-api
+ENV BACKEND_HOST=api
 
 CMD ["/bin/sh", "-c", "envsubst '${BACKEND_HOST}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]

@@ -133,6 +133,8 @@ services:
     image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
     container_name: resenha-frontend
     restart: unless-stopped
+    environment:
+      - BACKEND_HOST=api
     ports:
       - "80:80"
     depends_on:
