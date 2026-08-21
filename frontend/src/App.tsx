@@ -5,6 +5,8 @@ import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
 import Salas from './pages/Salas';
 import SalaRoom from './pages/SalaRoom';
+import Comunidades from './pages/Comunidades';
+import ComunidadeRoom from './pages/ComunidadeRoom';
 import Perfil from './pages/Perfil';
 import RedefinirSenha from './pages/RedefinirSenha';
 import EsqueciSenha from './pages/EsqueciSenha';
@@ -67,6 +69,8 @@ function AppRoutes() {
       <Route path="/painel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/salas" element={<ProtectedRoute><Salas /></ProtectedRoute>} />
       <Route path="/salas/:id" element={<ProtectedRoute><SalaRoom /></ProtectedRoute>} />
+      <Route path="/comunidades" element={<ProtectedRoute><Comunidades /></ProtectedRoute>} />
+      <Route path="/comunidades/:id" element={<ProtectedRoute><ComunidadeRoom /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
 
       {/* Fallback */}
