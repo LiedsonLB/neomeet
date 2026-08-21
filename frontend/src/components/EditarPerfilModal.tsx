@@ -3,10 +3,10 @@ import { useState, useRef } from 'react';
 import { X, Camera, Upload, Loader2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { usuarioApi, uploadApi, resolveFotoUrl } from '../api/client';
-import type { Usuario } from '../api/types';
+import type { LoginResponse, Usuario } from '../api/types';
 
 interface EditarPerfilModalProps {
-  usuario: Usuario;
+  usuario: LoginResponse; // Agora aceita LoginResponse
   onClose: () => void;
   onUpdated: (usuario: Usuario) => void;
 }

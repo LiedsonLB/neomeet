@@ -19,6 +19,10 @@ import VoiceRoomEmbed from '../components/VoiceRoomEmbed';
 
 const CANAIS_POLL_MS = 8000;
 
+type ParticipanteExibicao = ParticipanteInfo & {
+  isLocal: boolean;
+};
+
 export default function ComunidadeRoom() {
   const { id } = useParams<{ id: string }>();
   const comunidadeId = Number(id);
@@ -169,19 +173,21 @@ export default function ComunidadeRoom() {
     }));
   };
 
-  // CORRIGIDO: Função para obter participantes de um canal
-  const getParticipantesDoCanal = (canal: Canal): ParticipanteInfo[] => {
-    // Se estiver conectado neste canal, usa os participantes do hook
+  const getParticipantesDoCanal = (canal: Canal): ParticipanteExibicao[] => {
     if (voz.canalId === canal.id && voz.conectado) {
       return voz.participantes.map(p => ({
         identity: p.identity || '',
         nome: p.nome || 'Usuário',
         foto: p.foto || null,
         micEnabled: p.micEnabled !== undefined ? p.micEnabled : true,
+        isLocal: p.isLocal ?? false,
       }));
     }
-    // Caso contrário, usa os participantes da API
-    return canal.participantes_lista || [];
+
+    return (canal.participantes_lista || []).map(p => ({
+      ...p,
+      isLocal: false,
+    }));
   };
 
   // Função para contar participantes de um canal
@@ -354,9 +360,14 @@ export default function ComunidadeRoom() {
                         <div key={p.identity} className="flex items-center gap-1.5 justify-between py-0.5">
                           <div className="flex min-w-0 items-center gap-1.5">
                             <Avatar nome={p.nome} foto={p.foto} size={24} />
-                            <span className={`truncate text-[12px] ${conectadoAqui && p.identity === voz.identity ? 'text-tertiary font-semibold' : 'text-on-surface-variant'}`}>
+                            <span
+                              className={`truncate text-[12px] ${conectadoAqui && p.isLocal
+                                ? 'text-tertiary font-semibold'
+                                : 'text-on-surface-variant'
+                                }`}
+                            >
                               {p.nome}
-                              {conectadoAqui && p.identity === voz.identity && ' (você)'}
+                              {conectadoAqui && p.isLocal && ' (você)'}
                             </span>
                           </div>
                           {!p.micEnabled && <MicOff size={10} className="text-error shrink-0" />}

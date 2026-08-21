@@ -5,7 +5,6 @@ import {
   VideoConference, 
   useParticipants, 
   useLocalParticipant,
-  useRoomContext 
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { Loader2, VolumeX, ChevronUp, ChevronDown, MicOff, Users } from 'lucide-react';
@@ -22,7 +21,6 @@ interface VoiceRoomEmbedProps {
 
 // Componente para a barra de participantes recolhível
 function ParticipantsBar() {
-  const room = useRoomContext();
   const participants = useParticipants();
   const localParticipant = useLocalParticipant();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -137,7 +135,7 @@ function ParticipantsBar() {
 }
 
 // Componente principal
-export default function VoiceRoomEmbed({ canalId, canalNome, onDisconnect }: VoiceRoomEmbedProps) {
+export default function VoiceRoomEmbed({ canalId, onDisconnect }: VoiceRoomEmbedProps) {
   const { session } = useAuth();
   const [token, setToken] = useState('');
   const [url, setUrl] = useState('');

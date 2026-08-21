@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Video, Users, ArrowRight, BadgeCheck, LogOut, Pencil } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, resolveFotoUrl, ApiError } from '../api/client';
-import type { Comunidade } from '../api/types';
+import type { Comunidade, Usuario } from '../api/types';
 import AppShell from '../layout/AppShell';
 import EditarPerfilModal from '../components/EditarPerfilModal';
 
@@ -38,7 +38,7 @@ export default function Perfil() {
   const banner = resolveFotoUrl(usuario.banner);
   const initials = usuario.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
 
-  const handlePerfilAtualizado = (usuarioAtualizado: any) => {
+  const handlePerfilAtualizado = (usuarioAtualizado: Usuario) => {
     refreshUser(usuarioAtualizado);
   };
 
@@ -71,16 +71,15 @@ export default function Perfil() {
               </div>
               {/* Moldura - anel decorativo */}
               {usuario.moldura && usuario.moldura !== 'default' && (
-                <div className={`absolute inset-0 rounded-full border-8 pointer-events-none ${
-                  usuario.moldura === 'gold' ? 'border-yellow-500' :
-                  usuario.moldura === 'silver' ? 'border-gray-400' :
-                  usuario.moldura === 'diamond' ? 'border-cyan-400' :
-                  usuario.moldura === 'ruby' ? 'border-red-500' :
-                  usuario.moldura === 'emerald' ? 'border-emerald-500' :
-                  usuario.moldura === 'sapphire' ? 'border-blue-500' :
-                  usuario.moldura === 'rainbow' ? 'border-4 border-transparent bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500' :
-                  'border-secondary'
-                }`} />
+                <div className={`absolute inset-0 rounded-full border-8 pointer-events-none ${usuario.moldura === 'gold' ? 'border-yellow-500' :
+                    usuario.moldura === 'silver' ? 'border-gray-400' :
+                      usuario.moldura === 'diamond' ? 'border-cyan-400' :
+                        usuario.moldura === 'ruby' ? 'border-red-500' :
+                          usuario.moldura === 'emerald' ? 'border-emerald-500' :
+                            usuario.moldura === 'sapphire' ? 'border-blue-500' :
+                              usuario.moldura === 'rainbow' ? 'border-4 border-transparent bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500' :
+                                'border-secondary'
+                  }`} />
               )}
               <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-surface-bright bg-surface-container px-2 py-1 shadow-lg backdrop-blur-sm md:bottom-4 md:right-4">
                 <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-tertiary shadow-[0_0_8px_#00dce5]" />
@@ -164,7 +163,7 @@ export default function Perfil() {
               >
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-surface-container-highest text-lg font-bold text-primary overflow-hidden">
                   {comunidade.icone_url ? (
-                    <img src={resolveFotoUrl(comunidade.icone_url)} alt={comunidade.nome} className="h-full w-full object-cover" />
+                    <img src={resolveFotoUrl(comunidade.icone_url) ?? undefined} alt={comunidade.nome} className="h-full w-full object-cover" />
                   ) : (
                     comunidade.nome.slice(0, 2).toUpperCase()
                   )}

@@ -1,7 +1,7 @@
 // Dashboard.tsx - Versão corrigida com Comunidades
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowRight, Compass, Sparkles, Hash, Volume2 } from 'lucide-react';
+import { Search, Users, ArrowRight, Compass, Sparkles } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, resolveFotoUrl } from '../api/client';
 import type { Comunidade } from '../api/types';
@@ -63,7 +63,6 @@ export default function Dashboard() {
     const list = Array.isArray(comunidades) ? comunidades : [];
     return list
       .filter(c => c.papel !== 'dono')
-      .filter(c => categoria === 'Todos' || c.categoria === categoria)
       .filter(c => !busca.trim() || c.nome.toLowerCase().includes(busca.trim().toLowerCase()));
   }, [comunidades, categoria, busca]);
 
@@ -148,7 +147,7 @@ export default function Dashboard() {
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-surface-variant bg-surface-container-highest text-lg font-bold text-primary overflow-hidden">
                     {comunidade.icone_url ? (
                       <img 
-                        src={resolveFotoUrl(comunidade.icone_url)} 
+                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined} 
                         alt={comunidade.nome} 
                         className="h-full w-full object-cover" 
                       />
@@ -225,7 +224,7 @@ export default function Dashboard() {
                   <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-container/40 via-secondary-container/30 to-tertiary-container/40 text-2xl font-bold text-on-surface opacity-80 transition-transform duration-500 group-hover:scale-105">
                     {comunidade.icone_url ? (
                       <img 
-                        src={resolveFotoUrl(comunidade.icone_url)} 
+                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined} 
                         alt={comunidade.nome} 
                         className="h-full w-full object-cover" 
                       />
@@ -233,11 +232,6 @@ export default function Dashboard() {
                       comunidade.nome.slice(0, 2).toUpperCase()
                     )}
                   </div>
-                  {comunidade.categoria && (
-                    <div className="absolute right-2 top-2 rounded bg-surface/80 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface backdrop-blur">
-                      {comunidade.categoria}
-                    </div>
-                  )}
                 </div>
                 <div>
                   <h3 className="text-body-lg font-bold text-on-surface">{comunidade.nome}</h3>
