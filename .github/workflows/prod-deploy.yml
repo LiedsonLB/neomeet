@@ -89,51 +89,51 @@ jobs:
       - name: Gerar backend/.env
         run: |
           cat > backend/.env <<EOF
-          APP_NAME=Resenha
-          PORT=8080
-          TOKEN_KEY=${{ secrets.TOKEN_KEY }}
-          APP_KEY=${{ secrets.APP_KEY }}
+APP_NAME=Resenha
+PORT=8080
+TOKEN_KEY=${{ secrets.TOKEN_KEY }}
+APP_KEY=${{ secrets.APP_KEY }}
 
-          DB_HOST=mysql
-          DB_PORT=3306
-          DB_DATABASE=${{ secrets.MYSQL_DATABASE }}
-          DB_USERNAME=root
-          DB_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=${{ secrets.MYSQL_DATABASE }}
+DB_USERNAME=root
+DB_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
 
-          FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+FRONTEND_URL=${{ secrets.FRONTEND_URL }}
 
-          RABBIT_URL=amqp://${{ secrets.RABBITMQ_DEFAULT_USER }}:${{ secrets.RABBITMQ_DEFAULT_PASS }}@rabbitmq:5672/
+RABBIT_URL=amqp://${{ secrets.RABBITMQ_DEFAULT_USER }}:${{ secrets.RABBITMQ_DEFAULT_PASS }}@rabbitmq:5672/
 
-          MAIL_MAILER=smtp
-          MAIL_HOST=${{ secrets.MAIL_HOST }}
-          MAIL_PORT=${{ secrets.MAIL_PORT }}
-          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-          MAIL_ENCRYPTION=tls
-          MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}
-          MAIL_FROM_NAME="Resenha"
-          VERIFICATION_SECRET=${{ secrets.VERIFICATION_SECRET }}
+MAIL_MAILER=smtp
+MAIL_HOST=${{ secrets.MAIL_HOST }}
+MAIL_PORT=${{ secrets.MAIL_PORT }}
+MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=${{ secrets.MAIL_FROM_ADDRESS }}
+MAIL_FROM_NAME="Resenha"
+VERIFICATION_SECRET=${{ secrets.VERIFICATION_SECRET }}
 
-          LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}
-          LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
-          LIVEKIT_URL=ws://livekit:7880
+LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}
+LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
+LIVEKIT_URL=ws://livekit:7880
 
-          UPLOAD_DIR=/app/uploads
-          EOF
+UPLOAD_DIR=/app/uploads
+EOF
 
       # ---- Gera o .env de infraestrutura (variáveis do compose) --------
       - name: Gerar .env do docker-compose
         run: |
           cat > .env <<EOF
-          DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-          IMAGE_TAG=${{ github.sha }}
-          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
-          RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_DEFAULT_USER }}
-          RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}
-          VITE_API_URL=${{ secrets.VITE_API_URL }}
-          VITE_APP_KEY=${{ secrets.VITE_APP_KEY }}
-          EOF
+DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+IMAGE_TAG=${{ github.sha }}
+MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+RABBITMQ_DEFAULT_USER=${{ secrets.RABBITMQ_DEFAULT_USER }}
+RABBITMQ_DEFAULT_PASS=${{ secrets.RABBITMQ_DEFAULT_PASS }}
+VITE_API_URL=${{ secrets.VITE_API_URL }}
+VITE_APP_KEY=${{ secrets.VITE_APP_KEY }}
+EOF
 
       - name: Login DockerHub
         uses: docker/login-action@v3
