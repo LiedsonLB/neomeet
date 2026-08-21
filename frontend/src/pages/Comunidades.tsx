@@ -59,7 +59,7 @@ export default function Comunidades() {
 
       {loading ? (
         <p className="text-sm text-on-surface-variant">Carregando…</p>
-      ) : comunidades.length === 0 ? (
+      ) : !comunidades || comunidades.length === 0 ? (
         <div className="glass-card flex flex-col items-center gap-3 rounded-2xl py-16 text-center">
           <MessagesSquare size={28} className="text-outline" />
           <p className="text-sm text-on-surface-variant">
