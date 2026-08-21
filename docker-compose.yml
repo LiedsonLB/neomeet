@@ -108,7 +108,7 @@ services:
   worker-email:
     build:
       context: ./backend
-      dockerfile: Dockerfile.email
+      dockerfile: docker/Dockerfile.email
     image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
     container_name: resenha-worker-email
     restart: unless-stopped

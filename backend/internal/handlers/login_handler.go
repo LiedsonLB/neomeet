@@ -120,7 +120,7 @@ func (h *LoginHandler) verifyVerificationToken(email, token string) (bool, error
 
 	// Normaliza o email (lowercase)
 	email = strings.ToLower(strings.TrimSpace(email))
-	
+
 	parts := strings.Split(token, ":")
 	if len(parts) != 2 {
 		log.Printf("❌ Token inválido: não tem 2 partes, tem %d", len(parts))
@@ -171,7 +171,7 @@ func (h *LoginHandler) sendVerificationEmail(email, nome string) error {
 			Dados: map[string]string{
 				"nome_destinatario": nome,
 				"link_verificacao":  link,
-				"logo_url":          h.frontendURL + "/resenha_logo.png",
+				"logo_url":          h.frontendURL + "/webleia_logo.png",
 			},
 			CriadoEm: time.Now(),
 		}
@@ -253,6 +253,8 @@ func (h *LoginHandler) Run(w http.ResponseWriter, r *http.Request) {
 		"nome":              usuario.Nome,
 		"email":             usuario.Email,
 		"foto":              usuario.Foto,
+		"banner":            usuario.Banner,
+		"moldura":           usuario.Moldura,
 		"perfil":            usuario.Perfil,
 		"email_verified_at": usuario.EmailVerifiedAt,
 		"aluno_id":          usuario.AlunoID,
@@ -429,7 +431,7 @@ func (h *LoginHandler) EsqueciSenha(w http.ResponseWriter, r *http.Request) {
 			Tipo:         models.EmailTipoRedefinirSenha,
 			Destinatario: req.Email,
 			NomeDestino:  usuario.Nome,
-			Assunto:      "Redefinição de senha — " + h.appName,
+			Assunto:      "Redefinição de senha — Resenha",
 			Dados: map[string]string{
 				"nome_destinatario": usuario.Nome,
 				"link_redefinicao":  link,
@@ -507,14 +509,14 @@ func (h *LoginHandler) ConfirmarEmail(w http.ResponseWriter, r *http.Request) {
 	// LOG DA REQUISIÇÃO RECEBIDA
 	log.Printf("📨 Recebida requisição POST /acesso/confirmar-email")
 	log.Printf("📨 Headers: %v", r.Header)
-	
+
 	var req confirmarEmailRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("❌ Erro ao decodificar JSON: %v", err)
 		httpx.Error(w, "Dados inválidos.", 422)
 		return
 	}
-	
+
 	log.Printf("📧 ConfirmarEmail - Email: %s", req.Email)
 	log.Printf("📧 ConfirmarEmail - Token: %s", req.Token)
 	log.Printf("📧 ConfirmarEmail - Token length: %d", len(req.Token))

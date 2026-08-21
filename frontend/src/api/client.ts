@@ -7,6 +7,7 @@ import type {
 } from './types';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+console.log('API_URL:', API_URL); // Adicione para debug
 export const APP_KEY = import.meta.env.VITE_APP_KEY ?? 'WEBTESTE';
 
 // ---- error -------------------------------------------------
@@ -29,7 +30,7 @@ export interface StoredSession {
 function tokenUserHeader(s: StoredSession) { return `${s.id}:${s.token}:${s.appKey}`; }
 
 export async function authFetch<T>(session: StoredSession, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${API_URL}/api${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', TokenUser: tokenUserHeader(session), ...(init.headers ?? {}) },
   });
@@ -38,7 +39,7 @@ export async function authFetch<T>(session: StoredSession, path: string, init: R
 
 // ---- public ------------------------------------------------
 export async function login(email: string, senha: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_URL}/acesso/login`, {
+  const res = await fetch(`${API_URL}/api/acesso/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email, senha }),
@@ -47,7 +48,7 @@ export async function login(email: string, senha: string): Promise<LoginResponse
 }
 
 export async function cadastro(payload: { nome: string; email: string; senha: string }): Promise<Usuario> {
-  const res = await fetch(`${API_URL}/cadastro`, {
+  const res = await fetch(`${API_URL}/api/cadastro`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
@@ -86,7 +87,7 @@ export const usuarioApi = {
 
 // ---- esqueci / redefinir senha ------------------------------
 export async function esqueciSenha(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_URL}/acesso/esqueci-senha`, {
+  const res = await fetch(`${API_URL}/api/acesso/esqueci-senha`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email }),
@@ -95,7 +96,7 @@ export async function esqueciSenha(email: string): Promise<{ message: string }> 
 }
 
 export async function redefinirSenha(payload: { email: string; token: string; nova_senha: string }): Promise<{ message: string }> {
-  const res = await fetch(`${API_URL}/acesso/redefinir-senha`, {
+  const res = await fetch(`${API_URL}/api/acesso/redefinir-senha`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
@@ -105,7 +106,7 @@ export async function redefinirSenha(payload: { email: string; token: string; no
 
 // ---- confirmação de e-mail (cadastro) ------------------------
 export async function confirmarEmail(payload: { email: string; token: string }): Promise<{ message: string }> {
-  const res = await fetch(`${API_URL}/acesso/confirmar-email`, {
+  const res = await fetch(`${API_URL}/api/acesso/confirmar-email`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
@@ -116,7 +117,7 @@ export async function confirmarEmail(payload: { email: string; token: string }):
 }
 
 export async function reenviarConfirmacao(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_URL}/acesso/reenviar-confirmacao`, {
+  const res = await fetch(`${API_URL}/api/acesso/reenviar-confirmacao`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email }),
@@ -140,7 +141,7 @@ export const salaApi = {
   // SSE — usa TokenUser como query string porque EventSource não permite
   // headers customizados no browser.
   eventosUrl: (s: StoredSession, id: number) =>
-    `${API_URL}/salas/${id}/eventos?token_user=${encodeURIComponent(tokenUserHeader(s))}`,
+    `${API_URL}/api/salas/${id}/eventos?token_user=${encodeURIComponent(tokenUserHeader(s))}`,
 };
 
 // ============================================================
@@ -163,7 +164,7 @@ export const uploadApi = {
     form.append('arquivo', file);
     form.append('pasta', pasta);
     if (urlAntiga) form.append('foto_antiga', urlAntiga);
-    const res = await fetch(`${API_URL}/upload/foto`, {
+    const res = await fetch(`${API_URL}/api/upload/foto`, {
       method: 'POST',
       headers: { TokenUser: tokenUserHeader(s) },
       body: form,
@@ -181,7 +182,7 @@ export const uploadApi = {
 export function resolveFotoUrl(foto: string | null | undefined): string | null {
   if (!foto) return null;
   if (foto.startsWith('http://') || foto.startsWith('https://')) return foto;
-  return `${API_URL}${foto.startsWith('/') ? '' : '/'}${foto}`;
+  return `${API_URL}/api${foto.startsWith('/') ? '' : '/'}${foto}`;
 }
 
 // ============================================================

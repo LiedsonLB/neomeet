@@ -154,12 +154,14 @@ func (h *SalaHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 	identity := fmt.Sprintf("%d", session.ID)
 	// Dentro de Entrar(), antes de .Sign():
 	metadataJSON := ""
+	meta := map[string]string{"nome": session.Nome}
 	if session.Foto != nil && *session.Foto != "" {
-		meta := map[string]string{
-			"foto": *session.Foto,
-			"nome": session.Nome,
-		}
-		b, _ := json.Marshal(meta)
+		meta["foto"] = *session.Foto
+	}
+	if session.Moldura != nil && *session.Moldura != "" {
+		meta["moldura"] = *session.Moldura
+	}
+	if b, err := json.Marshal(meta); err == nil {
 		metadataJSON = string(b)
 	}
 

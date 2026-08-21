@@ -98,8 +98,21 @@ type usuarioPayload struct {
 	Email   string  `json:"email"`
 	Senha   string  `json:"senha"`
 	Foto    *string `json:"foto"`
+	Banner  *string `json:"banner"`
+	Moldura *string `json:"moldura"`
 	Perfil  int     `json:"perfil"`
 	AlunoID *int64  `json:"aluno_id"`
+}
+
+// nilIfEmpty evita gravar string vazia como se fosse um valor real — o
+// repositório trata ponteiro nil como "não mudou esse campo" (ver
+// UsuarioRepository.Update), então "" (campo ausente/limpo no formulário)
+// vira nil em vez de sobrescrever com uma string vazia.
+func nilIfEmpty(s *string) *string {
+	if s != nil && *s == "" {
+		return nil
+	}
+	return s
 }
 
 // Save handles POST /usuarios
@@ -209,7 +222,9 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 	u := &models.Usuario{
 		Nome:    payload.Nome,
 		Email:   payload.Email,
-		Foto:    payload.Foto,
+		Foto:    nilIfEmpty(payload.Foto),
+		Banner:  nilIfEmpty(payload.Banner),
+		Moldura: nilIfEmpty(payload.Moldura),
 		Perfil:  payload.Perfil,
 		AlunoID: payload.AlunoID,
 	}
@@ -221,12 +236,15 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apaga a foto antiga se foi alterada
-	oldFotoURL := ""
-	if oldUser != nil && oldUser.Foto != nil {
-		oldFotoURL = *oldUser.Foto
+	// Apaga a foto/banner antigos do disco se foram substituídos
+	if oldUser != nil {
+		if oldUser.Foto != nil {
+			h.deleteOldPhoto(*oldUser.Foto, u.Foto)
+		}
+		if oldUser.Banner != nil {
+			h.deleteOldPhoto(*oldUser.Banner, u.Banner)
+		}
 	}
-	h.deleteOldPhoto(oldFotoURL, payload.Foto)
 
 	httpx.JSON(w, 200, updated)
 }

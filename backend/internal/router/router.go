@@ -12,11 +12,11 @@ import (
 )
 
 type Deps struct {
-	UsuarioRepo                 *repository.UsuarioRepository
-	AplicacaoRepo               *repository.AplicacaoRepository
-	TokenRepo                   *repository.TokenRepository
-	CidadeRepo                  *repository.CidadeRepository
-	PasswordResetRepo           *repository.PasswordResetRepository
+	UsuarioRepo       *repository.UsuarioRepository
+	AplicacaoRepo     *repository.AplicacaoRepository
+	TokenRepo         *repository.TokenRepository
+	CidadeRepo        *repository.CidadeRepository
+	PasswordResetRepo *repository.PasswordResetRepository
 	// REMOVIDO: EmailVerificationRepo *repository.EmailVerificationRepository
 	AppName     string
 	TokenKey    string
@@ -33,6 +33,11 @@ type Deps struct {
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
 	LiveKitURL       string
+
+	// ---- Comunidades (estilo Discord: canais de texto/voz) -------------
+	ComunidadeRepo *repository.ComunidadeRepository
+	CanalRepo      *repository.CanalRepository
+	MensagemRepo   *repository.MensagemRepository
 
 	// ---- Verificação de e-mail (tokens auto-validáveis) ----------------
 	VerificationSecret string
@@ -79,6 +84,16 @@ func New(d Deps) http.Handler {
 	mux.Handle("DELETE /usuarios/{id}", auth(http.HandlerFunc(usuario.Delete)))
 	mux.Handle("POST /usuarios/restore/{id}", auth(http.HandlerFunc(usuario.Restore)))
 
+	// ---- uploads (fotos/banners de usuário, ícones/banners de comunidade)
+	// ANTES essas rotas não existiam aqui — o UploadHandler existia no
+	// código mas nunca era registrado, então nenhuma imagem enviada pelo
+	// formulário era de fato salva/persistida. Corrigido junto com a rota
+	// estática abaixo, que serve os arquivos gravados em d.UploadDir.
+	upload := handlers.NewUploadHandler(d.UploadDir)
+	mux.Handle("POST /upload/foto", auth(http.HandlerFunc(upload.Foto)))
+	mux.Handle("POST /upload/producao-imagem", auth(http.HandlerFunc(upload.ProducaoImagem)))
+	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(d.UploadDir))))
+
 	// ---- salas (LiveKit) -----------------------------------------------
 	sala := handlers.NewSalaHandler(d.SalaRepo, d.RealtimeHub, d.LiveKitAPIKey, d.LiveKitAPISecret, d.LiveKitURL)
 	mux.Handle("GET /salas", auth(http.HandlerFunc(sala.All)))
@@ -89,6 +104,26 @@ func New(d Deps) http.Handler {
 	mux.Handle("POST /salas/{id}/progresso", auth(http.HandlerFunc(sala.Progresso)))
 	mux.Handle("POST /salas/{id}/iniciar-producao", auth(http.HandlerFunc(sala.IniciarProducao)))
 	mux.Handle("GET /salas/{id}/eventos", auth(http.HandlerFunc(sala.Eventos)))
+
+	// ---- comunidades (servidores estilo Discord) ------------------------
+	comunidade := handlers.NewComunidadeHandler(d.ComunidadeRepo)
+	mux.Handle("GET /comunidades", auth(http.HandlerFunc(comunidade.All)))
+	mux.Handle("GET /comunidades/{id}", auth(http.HandlerFunc(comunidade.Find)))
+	mux.Handle("POST /comunidades", auth(http.HandlerFunc(comunidade.Save)))
+	mux.Handle("PUT /comunidades/{id}", auth(http.HandlerFunc(comunidade.Update)))
+	mux.Handle("DELETE /comunidades/{id}", auth(http.HandlerFunc(comunidade.Delete)))
+	mux.Handle("POST /comunidades/{id}/entrar", auth(http.HandlerFunc(comunidade.Entrar)))
+
+	// ---- canais (texto/voz) dentro de uma comunidade --------------------
+	canal := handlers.NewCanalHandler(d.CanalRepo, d.ComunidadeRepo, d.SalaRepo, d.RealtimeHub)
+	mux.Handle("GET /comunidades/{id}/canais", auth(http.HandlerFunc(canal.All)))
+	mux.Handle("POST /comunidades/{id}/canais", auth(http.HandlerFunc(canal.Save)))
+	mux.Handle("DELETE /canais/{id}", auth(http.HandlerFunc(canal.Delete)))
+
+	// ---- mensagens de um canal de texto ----------------------------------
+	mensagem := handlers.NewMensagemHandler(d.MensagemRepo, d.CanalRepo, d.ComunidadeRepo)
+	mux.Handle("GET /canais/{id}/mensagens", auth(http.HandlerFunc(mensagem.All)))
+	mux.Handle("POST /canais/{id}/mensagens", auth(http.HandlerFunc(mensagem.Save)))
 
 	return withCORS(mux)
 }

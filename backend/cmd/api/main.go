@@ -52,11 +52,11 @@ func main() {
 	} else {
 		log.Println("⚠️ RabbitMQ não configurado (RABBIT_URL vazio)")
 	}
-	
+
 	// 3. Criar RealtimeHub para salas - usando NewHub() que já inicia
 	hub := realtime.NewHub() // <-- NewHub já inicia o hub, não precisa de Run()
 	log.Println("✅ RealtimeHub iniciado")
-	
+
 	// 4. Criar repositório de salas
 	salaRepo := repository.NewSalaRepository(db)
 	log.Println("✅ SalaRepository inicializado")
@@ -72,26 +72,31 @@ func main() {
 
 	deps := router.Deps{
 		// Repositórios existentes
-		UsuarioRepo:                 repository.NewUsuarioRepository(db),
-		AplicacaoRepo:               repository.NewAplicacaoRepository(db),
-		TokenRepo:                   repository.NewTokenRepository(db),
-		CidadeRepo:                  repository.NewCidadeRepository(db),
-		PasswordResetRepo:           repository.NewPasswordResetRepository(db),
+		UsuarioRepo:        repository.NewUsuarioRepository(db),
+		AplicacaoRepo:      repository.NewAplicacaoRepository(db),
+		TokenRepo:          repository.NewTokenRepository(db),
+		CidadeRepo:         repository.NewCidadeRepository(db),
+		PasswordResetRepo:  repository.NewPasswordResetRepository(db),
 		VerificationSecret: cfg.VerificationSecret,
-		
+
 		// ---- SALAS (LiveKit) --------------------------------------------
 		SalaRepo:         salaRepo,
 		RealtimeHub:      hub,
 		LiveKitAPIKey:    cfg.LiveKitAPIKey,
 		LiveKitAPISecret: cfg.LiveKitAPISecret,
 		LiveKitURL:       cfg.LiveKitURL,
-		
-		// ---- EXPORTAÇÃO (RabbitMQ) ---------------------------------------
-		Rabbit:       rabbitMQ,
 
-		// ---- UPLOADS (fotos de perfil) ------------------------------------
+		// ---- COMUNIDADES (canais estilo Discord) -------------------------
+		ComunidadeRepo: repository.NewComunidadeRepository(db),
+		CanalRepo:      repository.NewCanalRepository(db),
+		MensagemRepo:   repository.NewMensagemRepository(db),
+
+		// ---- EXPORTAÇÃO (RabbitMQ) ---------------------------------------
+		Rabbit: rabbitMQ,
+
+		// ---- UPLOADS (fotos/banners de usuário, ícones/banners de comunidade)
 		UploadDir: cfg.UploadDir,
-		
+
 		// ---- OUTROS -----------------------------------------------------
 		Mailer:      mail,
 		FrontendURL: cfg.FrontendURL,

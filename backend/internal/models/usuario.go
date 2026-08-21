@@ -31,11 +31,17 @@ const (
 //	  FOREIGN KEY (`aluno_id`) REFERENCES `aluno` (`id`)
 //	)
 type Usuario struct {
-	ID              int64      `json:"id" db:"id"`
-	Nome            string     `json:"nome" db:"nome"`
-	Email           string     `json:"email" db:"email"`
-	Senha           string     `json:"-" db:"senha"`
-	Foto            *string    `json:"foto" db:"foto"`
+	ID    int64   `json:"id" db:"id"`
+	Nome  string  `json:"nome" db:"nome"`
+	Email string  `json:"email" db:"email"`
+	Senha string  `json:"-" db:"senha"`
+	Foto  *string `json:"foto" db:"foto"`
+	// Banner mostrado no topo do perfil (Perfil.tsx). Moldura é o
+	// identificador (preset) do anel decorativo em volta do avatar, ver
+	// frontend/src/components/Avatar.tsx — nenhum dos dois faz parte do
+	// schema original do WebLEIA, adicionados em 0003_comunidades.up.sql.
+	Banner          *string    `json:"banner" db:"banner"`
+	Moldura         *string    `json:"moldura" db:"moldura"`
 	Perfil          int        `json:"perfil" db:"perfil"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at" db:"email_verified_at"`
 	CreatedAt       *time.Time `json:"created_at" db:"created_at"`

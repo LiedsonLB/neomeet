@@ -82,11 +82,11 @@ func (r *UsuarioRepository) buildWhere(p ListParams) (string, []any) {
 	return strings.Join(clauses, " AND "), args
 }
 
-const usuarioColumns = "id, nome, email, senha, foto, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
+const usuarioColumns = "id, nome, email, senha, foto, banner, moldura, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
 
 func scanUsuario(row interface{ Scan(...any) error }) (*models.Usuario, error) {
 	u := &models.Usuario{}
-	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Perfil,
+	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Banner, &u.Moldura, &u.Perfil,
 		&u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.AlunoID)
 	if err != nil {
 		return nil, err
@@ -272,7 +272,7 @@ func (r *UsuarioRepository) FindByAlunoIDs(alunoIDs []int64) ([]models.Usuario, 
 
 	query := `SELECT id, nome, email, senha, foto, perfil, email_verified_at, remember_token, created_at, updated_at, deleted_at, aluno_id 
 	          FROM usuario WHERE aluno_id IN (` + strings.Join(placeholders, ", ") + `) AND deleted_at IS NULL`
-	
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
@@ -373,6 +373,35 @@ func (r *UsuarioRepository) Create(u *models.Usuario, plainSenha string) (*model
 	return r.FindByID(id, false)
 }
 
+// FindByIDs busca vários usuários de uma vez (ex.: para juntar nome/foto em
+// listas de mensagens de canal), preservando a ordem recebida.
+func (r *UsuarioRepository) FindByIDs(ids []int64) (map[int64]*models.Usuario, error) {
+	out := map[int64]*models.Usuario{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf("SELECT %s FROM usuario WHERE id IN (%s)", usuarioColumns, strings.Join(placeholders, ", "))
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		u, err := scanUsuario(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[u.ID] = u
+	}
+	return out, rows.Err()
+}
+
 // CreateInTx mirrors Create but runs inside an existing transaction, so it
 // can be composed with other writes (e.g. AlunoRepository::createAlunoAndUser).
 func (r *UsuarioRepository) CreateInTx(tx *sql.Tx, u *models.Usuario, plainSenha string) (*models.Usuario, error) {
@@ -444,6 +473,12 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	if u.Foto != nil {
 		existing.Foto = u.Foto
 	}
+	if u.Banner != nil {
+		existing.Banner = u.Banner
+	}
+	if u.Moldura != nil {
+		existing.Moldura = u.Moldura
+	}
 	if u.Perfil > 0 {
 		existing.Perfil = u.Perfil
 	}
@@ -464,9 +499,9 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	}
 
 	_, err = r.db.Exec(
-		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
+		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, banner = ?, moldura = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
 		 WHERE id = ?`,
-		existing.Nome, existing.Email, senha, existing.Foto, existing.Perfil, existing.AlunoID, id,
+		existing.Nome, existing.Email, senha, existing.Foto, existing.Banner, existing.Moldura, existing.Perfil, existing.AlunoID, id,
 	)
 	if err != nil {
 		return nil, err
