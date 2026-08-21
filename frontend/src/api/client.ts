@@ -3,7 +3,7 @@
 // ============================================================
 import type {
   LoginResponse, ApiErrorBody, Usuario, Paginated,
-  Sala, SalaTokenResponse
+  Sala, SalaTokenResponse, Comunidade, Canal, CanalMensagem, CanalTipo,
 } from './types';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -29,7 +29,7 @@ export interface StoredSession {
 function tokenUserHeader(s: StoredSession) { return `${s.id}:${s.token}:${s.appKey}`; }
 
 export async function authFetch<T>(session: StoredSession, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', TokenUser: tokenUserHeader(session), ...(init.headers ?? {}) },
   });
@@ -38,7 +38,7 @@ export async function authFetch<T>(session: StoredSession, path: string, init: R
 
 // ---- public ------------------------------------------------
 export async function login(email: string, senha: string): Promise<LoginResponse> {
-  const res = await fetch(`/api/acesso/login`, {
+  const res = await fetch(`${API_URL}/acesso/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email, senha }),
@@ -47,7 +47,7 @@ export async function login(email: string, senha: string): Promise<LoginResponse
 }
 
 export async function cadastro(payload: { nome: string; email: string; senha: string }): Promise<Usuario> {
-  const res = await fetch(`/api/cadastro`, {
+  const res = await fetch(`${API_URL}/cadastro`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
@@ -86,7 +86,7 @@ export const usuarioApi = {
 
 // ---- esqueci / redefinir senha ------------------------------
 export async function esqueciSenha(email: string): Promise<{ message: string }> {
-  const res = await fetch(`/api/acesso/esqueci-senha`, {
+  const res = await fetch(`${API_URL}/acesso/esqueci-senha`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email }),
@@ -95,7 +95,7 @@ export async function esqueciSenha(email: string): Promise<{ message: string }> 
 }
 
 export async function redefinirSenha(payload: { email: string; token: string; nova_senha: string }): Promise<{ message: string }> {
-  const res = await fetch(`/api/acesso/redefinir-senha`, {
+  const res = await fetch(`${API_URL}/acesso/redefinir-senha`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
@@ -105,25 +105,18 @@ export async function redefinirSenha(payload: { email: string; token: string; no
 
 // ---- confirmação de e-mail (cadastro) ------------------------
 export async function confirmarEmail(payload: { email: string; token: string }): Promise<{ message: string }> {
-  console.log('📤 Enviando confirmarEmail:', payload);
-  console.log('📤 Token length:', payload.token.length);
-
-  const res = await fetch(`/api/acesso/confirmar-email`, {
+  const res = await fetch(`${API_URL}/acesso/confirmar-email`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify(payload),
   });
-
-  console.log('📥 Resposta status:', res.status);
   const data = await res.json();
-  console.log('📥 Resposta body:', data);
-
   if (!res.ok) throw new ApiError(data);
   return data;
 }
 
 export async function reenviarConfirmacao(email: string): Promise<{ message: string }> {
-  const res = await fetch(`/api/acesso/reenviar-confirmacao`, {
+  const res = await fetch(`${API_URL}/acesso/reenviar-confirmacao`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
     body: JSON.stringify({ email }),
@@ -147,26 +140,39 @@ export const salaApi = {
   // SSE — usa TokenUser como query string porque EventSource não permite
   // headers customizados no browser.
   eventosUrl: (s: StoredSession, id: number) =>
-    `/api/salas/${id}/eventos?token_user=${encodeURIComponent(tokenUserHeader(s))}`,
+    `${API_URL}/salas/${id}/eventos?token_user=${encodeURIComponent(tokenUserHeader(s))}`,
 };
 
 // ============================================================
-// UPLOAD (foto de perfil, etc.)
+// UPLOAD (foto/banner de perfil, ícone/banner de comunidade)
 // ============================================================
+
+/** Pastas aceitas pelo backend — ver internal/handlers/upload_handler.go. */
+export type PastaUpload = 'fotos' | 'banners' | 'comunidades';
+
 export const uploadApi = {
-  foto: async (s: StoredSession, file: File, oldFotoUrl?: string | null): Promise<{ url: string }> => {
+  /**
+   * Envia uma imagem para `POST /upload/foto` (o nome da rota ficou do
+   * fluxo original de foto de perfil, mas ela aceita qualquer imagem —
+   * o campo `pasta` decide onde é salva). Devolve a URL pública pronta
+   * pra gravar em `usuario.foto`/`banner` ou `comunidade.icone_url`/
+   * `banner_url` via PUT.
+   */
+  imagem: async (s: StoredSession, file: File, pasta: PastaUpload = 'fotos', urlAntiga?: string | null): Promise<{ url: string }> => {
     const form = new FormData();
     form.append('arquivo', file);
-    if (oldFotoUrl) {
-      form.append('foto_antiga', oldFotoUrl);
-    }
-    const res = await fetch(`/api/upload/foto`, {
+    form.append('pasta', pasta);
+    if (urlAntiga) form.append('foto_antiga', urlAntiga);
+    const res = await fetch(`${API_URL}/upload/foto`, {
       method: 'POST',
       headers: { TokenUser: tokenUserHeader(s) },
       body: form,
     });
     return parseJsonOrThrow<{ url: string }>(res);
   },
+  // Atalhos por conveniência — todos chamam `imagem` por baixo.
+  foto: (s: StoredSession, file: File, oldFotoUrl?: string | null) => uploadApi.imagem(s, file, 'fotos', oldFotoUrl),
+  banner: (s: StoredSession, file: File, oldBannerUrl?: string | null) => uploadApi.imagem(s, file, 'banners', oldBannerUrl),
 };
 
 // Resolve o campo `foto` (que pode vir como caminho relativo do backend,
@@ -175,5 +181,43 @@ export const uploadApi = {
 export function resolveFotoUrl(foto: string | null | undefined): string | null {
   if (!foto) return null;
   if (foto.startsWith('http://') || foto.startsWith('https://')) return foto;
-  return `/api${foto.startsWith('/') ? '' : '/'}${foto}`;
+  return `${API_URL}${foto.startsWith('/') ? '' : '/'}${foto}`;
 }
+
+// ============================================================
+// COMUNIDADES
+// ============================================================
+export const comunidadeApi = {
+  list: (s: StoredSession) => authFetch<Comunidade[]>(s, '/comunidades'),
+  find: (s: StoredSession, id: number) => authFetch<Comunidade>(s, `/comunidades/${id}`),
+  create: (s: StoredSession, body: { nome: string; descricao?: string | null; icone_url?: string | null; banner_url?: string | null }) =>
+    authFetch<Comunidade>(s, '/comunidades', { method: 'POST', body: JSON.stringify(body) }),
+  update: (s: StoredSession, id: number, body: { nome?: string; descricao?: string | null; icone_url?: string | null; banner_url?: string | null }) =>
+    authFetch<Comunidade>(s, `/comunidades/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: (s: StoredSession, id: number) =>
+    authFetch<{ message: string }>(s, `/comunidades/${id}`, { method: 'DELETE' }),
+  entrar: (s: StoredSession, id: number) =>
+    authFetch<{ message: string }>(s, `/comunidades/${id}/entrar`, { method: 'POST' }),
+};
+
+// ============================================================
+// CANAIS (texto/voz de uma comunidade)
+// ============================================================
+export const canalApi = {
+  list: (s: StoredSession, comunidadeId: number) =>
+    authFetch<Canal[]>(s, `/comunidades/${comunidadeId}/canais`),
+  create: (s: StoredSession, comunidadeId: number, body: { nome: string; tipo: CanalTipo }) =>
+    authFetch<Canal>(s, `/comunidades/${comunidadeId}/canais`, { method: 'POST', body: JSON.stringify(body) }),
+  delete: (s: StoredSession, id: number) =>
+    authFetch<{ message: string }>(s, `/canais/${id}`, { method: 'DELETE' }),
+};
+
+// ============================================================
+// MENSAGENS (chat de um canal de texto)
+// ============================================================
+export const mensagemApi = {
+  list: (s: StoredSession, canalId: number, opts?: { after?: number; limit?: number }) =>
+    authFetch<CanalMensagem[]>(s, `/canais/${canalId}/mensagens${buildQuery({ after: opts?.after, limit: opts?.limit })}`),
+  send: (s: StoredSession, canalId: number, conteudo: string) =>
+    authFetch<CanalMensagem>(s, `/canais/${canalId}/mensagens`, { method: 'POST', body: JSON.stringify({ conteudo }) }),
+};

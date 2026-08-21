@@ -4,40 +4,12 @@ import {
   Home, Compass, LogOut, MessagesSquare, Plus,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { resolveFotoUrl } from '../api/client';
+import Avatar from '../components/Avatar';
 
 const NAV_ITEMS = [
   { to: '/painel', label: 'Home', icon: Home },
-  { to: '/salas', label: 'Comunidades', icon: Compass },
+  { to: '/comunidades', label: 'Comunidades', icon: Compass },
 ];
-
-function Avatar({ nome, foto, size = 40 }: { nome: string; foto?: string | null; size?: number }) {
-  const url = resolveFotoUrl(foto);
-  const initials = nome
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(p => p[0]?.toUpperCase())
-    .join('');
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={nome}
-        className="rounded-full object-cover"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <div
-      className="flex items-center justify-center rounded-full bg-gradient-to-br from-primary-container to-secondary-container font-label-md font-bold text-on-primary-container"
-      style={{ width: size, height: size }}
-    >
-      {initials || '?'}
-    </div>
-  );
-}
 
 /** Rail de navegação lateral (desktop) + topo (mobile), no tema dark
  * "Glass-Tech" do Resenha — ver mockups Home / Comunidade / Perfil. */
@@ -89,8 +61,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
             <button
               type="button"
-              title="Criar sala"
-              onClick={() => navigate('/salas?nova=1')}
+              title="Criar comunidade"
+              onClick={() => navigate('/comunidades?nova=1')}
               className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-outline-variant bg-surface-container text-tertiary transition-all hover:bg-surface-container-high"
             >
               <Plus size={22} />
@@ -109,7 +81,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 : 'flex h-11 w-11 items-center justify-center rounded-full opacity-80 transition-opacity hover:opacity-100'
             }
           >
-            <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} size={40} />
+            <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} moldura={usuario?.moldura} size={38} />
           </button>
           <button
             type="button"
@@ -129,7 +101,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <span className="text-headline-md text-primary">Resenha</span>
         </button>
         <button type="button" onClick={() => navigate('/perfil')}>
-          <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} size={32} />
+          <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} moldura={usuario?.moldura} size={32} />
         </button>
       </header>
 
@@ -160,11 +132,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </button>
           );
         })}
-        <button type="button" onClick={() => navigate('/salas?nova=1')} className="flex h-12 w-14 flex-col items-center justify-center text-outline">
+        <button type="button" onClick={() => navigate('/comunidades?nova=1')} className="flex h-12 w-14 flex-col items-center justify-center text-outline">
           <Plus size={22} />
         </button>
         <button type="button" onClick={() => navigate('/perfil')} className="flex h-12 w-14 flex-col items-center justify-center text-outline">
-          <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} size={22} />
+          <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} moldura={usuario?.moldura} size={22} />
         </button>
       </nav>
     </div>
