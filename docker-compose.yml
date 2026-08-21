@@ -71,6 +71,8 @@ services:
     image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
     container_name: resenha-api
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - APP_NAME=Resenha
       - PORT=8080
