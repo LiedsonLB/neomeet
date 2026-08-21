@@ -67,80 +67,80 @@ services:
       - resenha-network
 
   # ---- API (Go) ---------------------------------------------------------
-  # api:
-  #   image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
-  #   container_name: resenha-api
-  #   restart: unless-stopped
-  #   environment:
-  #     - APP_NAME=Resenha
-  #     - PORT=8080
-  #     - TOKEN_KEY=${TOKEN_KEY:-change-me}
-  #     - APP_KEY=${APP_KEY:-WEBTESTE}
-  #     - DB_HOST=mysql
-  #     - DB_PORT=3306
-  #     - DB_DATABASE=${MYSQL_DATABASE}
-  #     - DB_USERNAME=root
-  #     - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
-  #     - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
-  #     - RABBIT_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
-  #     - MAIL_MAILER=smtp
-  #     - MAIL_HOST=${MAIL_HOST}
-  #     - MAIL_PORT=${MAIL_PORT:-587}
-  #     - MAIL_USERNAME=${MAIL_USERNAME}
-  #     - MAIL_PASSWORD=${MAIL_PASSWORD}
-  #     - MAIL_ENCRYPTION=tls
-  #     - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
-  #     - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Resenha}
-  #     - VERIFICATION_SECRET=${VERIFICATION_SECRET}
-  #     - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-  #     - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-  #     - LIVEKIT_URL=ws://livekit:7880
-  #     - UPLOAD_DIR=/app/uploads
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - resenha-network
+  api:
+    image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
+    container_name: resenha-api
+    restart: unless-stopped
+    environment:
+      - APP_NAME=Resenha
+      - PORT=8080
+      - TOKEN_KEY=${TOKEN_KEY:-change-me}
+      - APP_KEY=${APP_KEY:-WEBTESTE}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${MYSQL_DATABASE}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - RABBIT_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_ENCRYPTION=tls
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Resenha}
+      - VERIFICATION_SECRET=${VERIFICATION_SECRET}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_URL=ws://livekit:7880
+      - UPLOAD_DIR=/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - resenha-network
 
   # ---- Worker de e-mail (Go) --------------------------------------------
-  # worker-email:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: docker/Dockerfile.email
-  #   image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
-  #   container_name: resenha-worker-email
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./backend/.env
-  #   environment:
-  #     RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - resenha-network
+  worker-email:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.email
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
+    container_name: resenha-worker-email
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - resenha-network
 
   # ---- Frontend (React + Nginx) ------------------------------------------
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #     args:
-  #       VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
-  #       VITE_APP_KEY: ${VITE_APP_KEY:-WEBTESTE}
-  #   image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
-  #   container_name: resenha-frontend
-  #   restart: unless-stopped
-  #   environment:
-  #     - BACKEND_HOST=api
-  #   ports:
-  #     - "80:80"
-  #   depends_on:
-  #     - api
-  #   networks:
-  #     - resenha-network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_APP_KEY: ${VITE_APP_KEY:-WEBTESTE}
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
+    container_name: resenha-frontend
+    restart: unless-stopped
+    environment:
+      - BACKEND_HOST=api
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - resenha-network
 
   # neomeet-decoder:
   #   Depende da pasta ./gstreamer, que não existe neste checkout (bot de
