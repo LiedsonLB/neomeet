@@ -22,7 +22,7 @@ func NewMensagemHandler(repo *repository.MensagemRepository, canalRepo *reposito
 }
 
 // canalDoMembro busca o canal do path e garante que a sessão atual é
-// membro da comunidade dona dele (dono ou membro comum).
+// membro da comunidade dona dele (dono ou membro comum) - APENAS PARA MENSAGENS
 func (h *MensagemHandler) canalDoMembro(w http.ResponseWriter, r *http.Request) (*models.Canal, bool) {
 	canalID, err := idFromPath(r)
 	if err != nil {
@@ -43,6 +43,8 @@ func (h *MensagemHandler) canalDoMembro(w http.ResponseWriter, r *http.Request) 
 		httpx.Error(w, "Não autenticado.", 401)
 		return nil, false
 	}
+	
+	// PARA MENSAGENS: só permite se for membro
 	if !session.IsAdmin() {
 		papel, err := h.comunidadeRepo.Papel(canal.ComunidadeID, session.ID)
 		if err != nil {
@@ -50,7 +52,7 @@ func (h *MensagemHandler) canalDoMembro(w http.ResponseWriter, r *http.Request) 
 			return nil, false
 		}
 		if papel == "" {
-			httpx.Error(w, "Você não faz parte dessa comunidade.", 403)
+			httpx.Error(w, "Você precisa ser membro para ver as mensagens.", 403)
 			return nil, false
 		}
 	}

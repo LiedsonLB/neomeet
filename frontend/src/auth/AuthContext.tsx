@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+// auth/AuthContext.tsx
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { login as apiLogin, APP_KEY, type StoredSession } from '../api/client';
-import type { LoginResponse } from '../api/types';
+import type { LoginResponse, Usuario } from '../api/types';
 
 const STORAGE_KEY = 'webleia.session';
 
@@ -9,11 +10,12 @@ interface AuthState {
   usuario: LoginResponse | null;
   isAdmin: boolean;
   loading: boolean;
-  isLoading: boolean; // Novo: indica se esta carregando a sessao inicial
+  isLoading: boolean;
   error: string | null;
   signIn: (email: string, senha: string) => Promise<void>;
   signOut: () => void;
   updateUsuario: (patch: Partial<LoginResponse>) => void;
+  refreshUser: (usuarioAtualizado: Usuario) => void; // Adicionado
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -28,14 +30,10 @@ function loadStored(): LoginResponse | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<LoginResponse | null>(() => loadStored());
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Novo estado
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Carregamento inicial da sessao
   useEffect(() => {
-    // Simula um pequeno delay para garantir que o session foi carregado
-    // Na verdade, o usuario ja foi carregado via useState inicial
-    // Mas marcamos como carregado apos o primeiro render
     setIsLoading(false);
   }, []);
 
@@ -45,21 +43,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [usuario]);
 
   async function signIn(email: string, senha: string) {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       const data = await apiLogin(email, senha);
       setUsuario(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Nao foi possivel entrar.';
-      setError(msg); throw err;
-    } finally { setLoading(false); }
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function signOut() { setUsuario(null); }
+  function signOut() {
+    setUsuario(null);
+  }
 
   function updateUsuario(patch: Partial<LoginResponse>) {
     setUsuario(prev => (prev ? { ...prev, ...patch } : prev));
   }
+
+  // CORRIGIDO: refreshUser agora usa o estado atual
+  const refreshUser = useCallback((usuarioAtualizado: Usuario) => {
+    setUsuario(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        ...usuarioAtualizado,
+      };
+    });
+  }, []);
 
   const session: StoredSession | null = usuario
     ? { id: usuario.id, token: usuario.token, appKey: APP_KEY, perfil: usuario.perfil }
@@ -68,16 +83,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAdmin = usuario?.perfil === 1 || session?.perfil === 1;
 
   return (
-    <AuthContext.Provider value={{ 
-      session, 
-      usuario, 
-      isAdmin, 
-      loading, 
+    <AuthContext.Provider value={{
+      session,
+      usuario,
+      isAdmin,
+      refreshUser,
+      loading,
       isLoading,
-      error, 
-      signIn, 
-      signOut, 
-      updateUsuario 
+      error,
+      signIn,
+      signOut,
+      updateUsuario
     }}>
       {children}
     </AuthContext.Provider>

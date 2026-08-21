@@ -27,26 +27,42 @@ func (h *ComunidadeHandler) enrich(c *models.Comunidade, sessionID int64) {
 	c.TotalMembros = total
 }
 
-// All handles GET /comunidades — lista as comunidades das quais o usuário
-// logado é membro (aparecem na rail de servidores, estilo Discord).
+// All handles GET /comunidades — lista TODAS as comunidades (públicas)
+// para o dashboard, incluindo as que o usuário não é membro.
 func (h *ComunidadeHandler) All(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	
+	// Pega o usuário da sessão
 	session := middleware.UserFromContext(r)
 	if session == nil {
 		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
-	list, err := h.repo.ListByUsuario(session.ID)
+	
+	// Busca TODAS as comunidades (públicas)
+	comunidades, err := h.repo.FindAll(ctx)
 	if err != nil {
-		httpx.Error(w, "Erro interno.", 500)
+		httpx.Error(w, "Erro ao carregar comunidades: "+err.Error(), 500)
 		return
 	}
-	if list == nil {
-		list = []*models.Comunidade{}
+	
+	// Para cada comunidade, verifica se o usuário é membro e qual o papel
+	for _, comunidade := range comunidades {
+		// Verifica se o usuário é membro
+		membro, err := h.repo.FindMembro(ctx, comunidade.ID, session.ID)
+		if err == nil && membro != nil {
+			comunidade.Papel = membro.Papel
+		} else {
+			// Se não for membro, define como vazio (acesso público)
+			comunidade.Papel = ""
+		}
+		
+		// Conta membros
+		total, _ := h.repo.CountMembros(ctx, comunidade.ID)
+		comunidade.TotalMembros = total
 	}
-	for _, c := range list {
-		h.enrich(c, session.ID)
-	}
-	httpx.JSON(w, 200, list)
+	
+	httpx.JSON(w, 200, comunidades)
 }
 
 func (h *ComunidadeHandler) Find(w http.ResponseWriter, r *http.Request) {
@@ -172,7 +188,6 @@ func (h *ComunidadeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Entrar handles POST /comunidades/{id}/entrar — qualquer usuário
 // autenticado pode entrar numa comunidade existente (link direto/convite).
-// Não há um diretório público de comunidades ainda — é preciso ter o id.
 func (h *ComunidadeHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -101,6 +102,58 @@ func (r *ComunidadeRepository) ListByUsuario(usuarioID int64) ([]*models.Comunid
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// FindAll retorna TODAS as comunidades (públicas) - usado para o dashboard
+func (r *ComunidadeRepository) FindAll(ctx context.Context) ([]*models.Comunidade, error) {
+	query := fmt.Sprintf(`
+		SELECT %s FROM comunidade
+		WHERE deleted_at IS NULL
+		ORDER BY created_at DESC`, comunidadeColumns)
+	
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.Comunidade
+	for rows.Next() {
+		c, err := scanComunidade(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// FindMembro verifica se o usuário é membro da comunidade
+func (r *ComunidadeRepository) FindMembro(ctx context.Context, comunidadeID, usuarioID int64) (*models.ComunidadeMembro, error) {
+	var membro models.ComunidadeMembro
+	query := `SELECT id, comunidade_id, usuario_id, papel, created_at 
+	          FROM comunidade_membro 
+	          WHERE comunidade_id = ? AND usuario_id = ?`
+	err := r.db.QueryRowContext(ctx, query, comunidadeID, usuarioID).Scan(
+		&membro.ID, &membro.ComunidadeID, &membro.UsuarioID, &membro.Papel, &membro.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &membro, nil
+}
+
+// CountMembros conta o total de membros de uma comunidade
+func (r *ComunidadeRepository) CountMembros(ctx context.Context, comunidadeID int64) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, 
+		`SELECT COUNT(*) FROM comunidade_membro WHERE comunidade_id = ?`, 
+		comunidadeID,
+	).Scan(&count)
+	return count, err
 }
 
 // Papel devolve o papel do usuário na comunidade ("dono"/"membro") ou "" se

@@ -7,16 +7,17 @@ export interface Usuario {
   nome: string;
   email: string;
   foto: string | null;
-  /** Banner mostrado no topo do Perfil.tsx. */
-  banner: string | null;
-  /** Chave de um preset de moldura (ver components/Avatar.tsx), ou null. */
-  moldura: string | null;
+  banner: string | null;   // Adicionado
+  moldura: string | null;  // Adicionado
   perfil: number;
   email_verified_at: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  aluno_id: number | null;
+  foto_url?: string | null;
+  thumb?: string | null;
 }
-
 export interface LoginResponse {
   id: number;
   nome: string;
@@ -96,13 +97,21 @@ export interface Canal {
   id: number;
   comunidade_id: number;
   nome: string;
-  tipo: CanalTipo;
-  posicao: number;
+  tipo: 'texto' | 'voz';
   sala_id: number | null;
-  created_at: string | null;
-  updated_at: string | null;
-  /** Só para canais de voz: quantas pessoas estão na chamada agora. */
-  participantes_online?: number;
+  posicao: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  participantes_online: number;
+  participantes_lista?: ParticipanteInfo[];
+}
+
+export interface ParticipanteInfo {
+  identity: string;
+  nome: string;
+  foto?: string | null;
+  micEnabled: boolean;
 }
 
 export interface CanalMensagem {

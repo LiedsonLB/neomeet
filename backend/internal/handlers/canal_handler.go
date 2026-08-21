@@ -23,8 +23,7 @@ func NewCanalHandler(repo *repository.CanalRepository, comunidadeRepo *repositor
 	return &CanalHandler{repo: repo, comunidadeRepo: comunidadeRepo, salaRepo: salaRepo, hub: hub}
 }
 
-// requireMembro garante que a sessão atual pertence à comunidade (dono ou
-// membro comum) — canais só são visíveis/criáveis por quem já está dentro.
+// requireMembro garante que a sessão atual pertence à comunidade
 func (h *CanalHandler) requireMembro(w http.ResponseWriter, r *http.Request, comunidadeID int64) bool {
 	session := middleware.UserFromContext(r)
 	if session == nil {
@@ -68,15 +67,22 @@ func (h *CanalHandler) requireDono(w http.ResponseWriter, r *http.Request, comun
 }
 
 // All handles GET /comunidades/{id}/canais
+// Retorna participantes online para todos os canais de voz
 func (h *CanalHandler) All(w http.ResponseWriter, r *http.Request) {
 	comunidadeID, err := idFromPath(r)
 	if err != nil {
 		httpx.Error(w, "Id inválido.", 422)
 		return
 	}
-	if !h.requireMembro(w, r, comunidadeID) {
+
+	// Verifica se o usuário está autenticado
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
+
+	// Busca os canais da comunidade
 	list, err := h.repo.ListByComunidade(comunidadeID)
 	if err != nil {
 		httpx.Error(w, "Erro interno.", 500)
@@ -85,11 +91,17 @@ func (h *CanalHandler) All(w http.ResponseWriter, r *http.Request) {
 	if list == nil {
 		list = []*models.Canal{}
 	}
+
+	// Preenche participantes online para TODOS os canais de voz
 	for _, c := range list {
 		if c.Tipo == models.CanalTipoVoz && c.SalaID != nil {
-			c.ParticipantesOnline = len(h.hub.Participantes(*c.SalaID))
+			// Pega participantes detalhados do hub
+			participantes := h.hub.ParticipantesDetalhados(*c.SalaID)
+			c.ParticipantesOnline = len(participantes)
+			c.ParticipantesLista = participantes
 		}
 	}
+
 	httpx.JSON(w, 200, list)
 }
 
@@ -98,9 +110,7 @@ type canalPayload struct {
 	Tipo string `json:"tipo"` // "texto" | "voz"
 }
 
-// Save handles POST /comunidades/{id}/canais — só o dono pode criar canal.
-// Quando tipo=="voz", cria também a Sala/LiveKit correspondente (reaproveita
-// 100% o fluxo que já existia para /salas).
+// Save handles POST /comunidades/{id}/canais
 func (h *CanalHandler) Save(w http.ResponseWriter, r *http.Request) {
 	comunidadeID, err := idFromPath(r)
 	if err != nil {
@@ -144,8 +154,7 @@ func (h *CanalHandler) Save(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 201, created)
 }
 
-// Delete handles DELETE /canais/{id} — só o dono da comunidade dona do
-// canal. Se for canal de voz, também encerra a Sala/LiveKit vinculada.
+// Delete handles DELETE /canais/{id}
 func (h *CanalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {

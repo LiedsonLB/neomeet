@@ -1,9 +1,11 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Home, Compass, LogOut, MessagesSquare, Plus,
+  Home, Compass, LogOut, MessagesSquare, Plus, Loader2,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
+import { comunidadeApi, resolveFotoUrl } from '../api/client';
+import type { Comunidade } from '../api/types';
 import Avatar from '../components/Avatar';
 
 const NAV_ITEMS = [
@@ -11,22 +13,58 @@ const NAV_ITEMS = [
   { to: '/comunidades', label: 'Comunidades', icon: Compass },
 ];
 
-/** Rail de navegação lateral (desktop) + topo (mobile), no tema dark
- * "Glass-Tech" do Resenha — ver mockups Home / Comunidade / Perfil. */
 export default function AppShell({ children }: { children: ReactNode }) {
-  const { usuario, signOut } = useAuth();
+  const { session, usuario, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [comunidades, setComunidades] = useState<Comunidade[]>([]);
+  const [loadingComunidades, setLoadingComunidades] = useState(true);
 
   function isActive(to: string) {
     return location.pathname === to || location.pathname.startsWith(`${to}/`);
   }
 
+  useEffect(() => {
+    if (!session) {
+      setLoadingComunidades(false);
+      return;
+    }
+
+    let mounted = true;
+    setLoadingComunidades(true);
+
+    comunidadeApi
+      .list(session)
+      .then(list => {
+        if (mounted) {
+          // Filtra apenas comunidades onde o usuário é membro
+          const comunidadesDoUsuario = Array.isArray(list)
+            ? list.filter(c => c.papel !== null && c.papel !== undefined)
+            : [];
+          setComunidades(comunidadesDoUsuario);
+        }
+      })
+      .catch(() => {
+        if (mounted) setComunidades([]);
+      })
+      .finally(() => {
+        if (mounted) setLoadingComunidades(false);
+      });
+
+    return () => { mounted = false; };
+  }, [session]);
+
+  const comunidadeIdAtual = location.pathname.startsWith('/comunidades/')
+    ? Number(location.pathname.split('/')[2])
+    : null;
+
   return (
     <div className="min-h-screen bg-background text-on-background">
-      {/* ---- Rail lateral (desktop) ---- */}
+      {/* ---- Rail lateral (desktop) com comunidades ---- */}
       <nav className="fixed inset-y-0 left-0 z-50 hidden w-20 flex-col justify-between border-r border-outline-variant bg-surface-container-lowest py-4 md:flex">
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-2">
+          {/* Logo */}
           <button
             type="button"
             onClick={() => navigate('/painel')}
@@ -36,6 +74,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
             <img src="/resenha_icon.png" alt="Resenha" className="h-12" />
           </button>
 
+          <div className="my-1 h-px w-8 bg-outline-variant" />
+
+          {/* Navegação principal */}
           <div className="flex flex-col items-center gap-3 px-2">
             {NAV_ITEMS.map(item => {
               const Icon = item.icon;
@@ -59,6 +100,34 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
             <div className="my-1 h-px w-8 bg-outline-variant" />
 
+            {/* Lista de Comunidades */}
+            {loadingComunidades ? (
+              <Loader2 size={20} className="spin-icon text-outline" />
+            ) : (
+              comunidades.map(c => {
+                const ativo = c.id === comunidadeIdAtual;
+                const icone = resolveFotoUrl(c.icone_url);
+                return (
+                  <button
+                    key={c.id}
+                    title={c.nome}
+                    onClick={() => navigate(`/comunidades/${c.id}`)}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:rounded-xl ${ativo
+                      ? 'rounded-xl bg-surface-container-high text-on-primary-container shadow-glow'
+                      : 'bg-surface-container-high text-on-surface-variant hover:bg-primary-container/60'
+                      }`}
+                  >
+                    {icone ? (
+                      <img src={icone} alt={c.nome} className="h-full w-full object-cover" />
+                    ) : (
+                      c.nome.slice(0, 2).toUpperCase()
+                    )}
+                  </button>
+                );
+              })
+            )}
+
+            {/* Botão Criar Comunidade */}
             <button
               type="button"
               title="Criar comunidade"
@@ -70,6 +139,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
+        {/* Footer - Perfil e Sair */}
         <div className="flex flex-col items-center gap-3 px-2">
           <button
             type="button"

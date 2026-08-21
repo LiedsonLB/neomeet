@@ -1,25 +1,33 @@
+// Perfil.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Video, Users, ArrowRight, BadgeCheck, LogOut } from 'lucide-react';
+import { Video, Users, ArrowRight, BadgeCheck, LogOut, Pencil } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { salaApi, resolveFotoUrl, ApiError } from '../api/client';
-import type { Sala } from '../api/types';
+import { comunidadeApi, resolveFotoUrl, ApiError } from '../api/client';
+import type { Comunidade } from '../api/types';
 import AppShell from '../layout/AppShell';
+import EditarPerfilModal from '../components/EditarPerfilModal';
 
 export default function Perfil() {
-  const { session, usuario, signOut } = useAuth();
+  const { session, usuario, signOut, refreshUser } = useAuth();
   const navigate = useNavigate();
 
-  const [minhasSalas, setMinhasSalas] = useState<Sala[]>([]);
+  const [minhasComunidades, setMinhasComunidades] = useState<Comunidade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalEditarAberto, setModalEditarAberto] = useState(false);
 
   useEffect(() => {
     if (!session) return;
     let mounted = true;
-    salaApi.list(session)
-      .then(list => mounted && setMinhasSalas(list.filter(s => s.criado_por === session.id)))
-      .catch(err => mounted && setError(err instanceof ApiError ? err.message : 'Erro ao carregar suas salas.'))
+    comunidadeApi.list(session)
+      .then(list => {
+        if (mounted) {
+          // Filtra comunidades onde o usuário é dono
+          setMinhasComunidades(list.filter(c => c.papel === 'dono'));
+        }
+      })
+      .catch(err => mounted && setError(err instanceof ApiError ? err.message : 'Erro ao carregar suas comunidades.'))
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
   }, [session?.id]);
@@ -27,14 +35,23 @@ export default function Perfil() {
   if (!usuario) return null;
 
   const foto = resolveFotoUrl(usuario.foto);
+  const banner = resolveFotoUrl(usuario.banner);
   const initials = usuario.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
+
+  const handlePerfilAtualizado = (usuarioAtualizado: any) => {
+    refreshUser(usuarioAtualizado);
+  };
 
   return (
     <AppShell>
       <div className="glass-panel relative overflow-hidden rounded-3xl">
         {/* Banner */}
         <div className="relative h-40 w-full md:h-56">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#124af0] via-[#6c04de] to-[#00797e] opacity-80" />
+          {banner ? (
+            <img src={banner} alt="Banner" className="h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-r from-[#124af0] via-[#6c04de] to-[#00797e] opacity-80" />
+          )}
           <div
             className="absolute inset-0 opacity-30 mix-blend-overlay"
             style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.4) 0%, transparent 50%)' }}
@@ -52,6 +69,19 @@ export default function Perfil() {
                   <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-on-surface">{initials}</div>
                 )}
               </div>
+              {/* Moldura - anel decorativo */}
+              {usuario.moldura && usuario.moldura !== 'default' && (
+                <div className={`absolute inset-0 rounded-full border-8 pointer-events-none ${
+                  usuario.moldura === 'gold' ? 'border-yellow-500' :
+                  usuario.moldura === 'silver' ? 'border-gray-400' :
+                  usuario.moldura === 'diamond' ? 'border-cyan-400' :
+                  usuario.moldura === 'ruby' ? 'border-red-500' :
+                  usuario.moldura === 'emerald' ? 'border-emerald-500' :
+                  usuario.moldura === 'sapphire' ? 'border-blue-500' :
+                  usuario.moldura === 'rainbow' ? 'border-4 border-transparent bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500' :
+                  'border-secondary'
+                }`} />
+              )}
               <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-surface-bright bg-surface-container px-2 py-1 shadow-lg backdrop-blur-sm md:bottom-4 md:right-4">
                 <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-tertiary shadow-[0_0_8px_#00dce5]" />
                 <span className="text-label-sm text-on-surface">Online</span>
@@ -60,6 +90,13 @@ export default function Perfil() {
 
             {/* Ações */}
             <div className="flex items-center gap-3 pb-2">
+              <button
+                type="button"
+                onClick={() => setModalEditarAberto(true)}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-label-md text-on-primary transition-all hover:bg-primary-hover shadow-[0_0_20px_rgba(46,91,255,0.3)]"
+              >
+                <Pencil size={18} /> Editar perfil
+              </button>
               <button
                 type="button"
                 onClick={() => { signOut(); navigate('/login'); }}
@@ -82,7 +119,7 @@ export default function Perfil() {
             <div className="mt-6 flex flex-wrap gap-2">
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-surface-container-highest px-3 py-1.5">
                 <Video size={16} className="text-secondary" />
-                <span className="text-label-sm text-on-surface">{minhasSalas.length} sala(s) criada(s)</span>
+                <span className="text-label-sm text-on-surface">{minhasComunidades.length} comunidade(s) criada(s)</span>
               </div>
               {usuario.perfil === 1 && (
                 <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-surface-container-highest px-3 py-1.5">
@@ -95,13 +132,13 @@ export default function Perfil() {
         </div>
       </div>
 
-      {/* Minhas salas */}
+      {/* Minhas comunidades */}
       <section className="flex flex-col gap-stack-md">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
-            <Users size={20} className="text-primary" /> Minhas salas
+            <Users size={20} className="text-primary" /> Minhas comunidades
           </h2>
-          <span className="text-label-md text-on-surface-variant">{minhasSalas.length} criada(s)</span>
+          <span className="text-label-md text-on-surface-variant">{minhasComunidades.length} criada(s)</span>
         </div>
 
         {error && (
@@ -110,29 +147,33 @@ export default function Perfil() {
 
         {loading ? (
           <p className="text-sm text-on-surface-variant">Carregando…</p>
-        ) : minhasSalas.length === 0 ? (
+        ) : minhasComunidades.length === 0 ? (
           <div className="glass-card flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-variant py-10 text-center">
-            <p className="text-sm text-on-surface-variant">Você ainda não criou nenhuma sala.</p>
-            <button type="button" onClick={() => navigate('/salas?nova=1')} className="btn-primary mt-2 px-5 py-2 text-sm">
-              Criar sala
+            <p className="text-sm text-on-surface-variant">Você ainda não criou nenhuma comunidade.</p>
+            <button type="button" onClick={() => navigate('/comunidades?nova=1')} className="btn-primary mt-2 px-5 py-2 text-sm">
+              Criar comunidade
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {minhasSalas.map(sala => (
+            {minhasComunidades.map(comunidade => (
               <div
-                key={sala.id}
-                onClick={() => navigate(`/salas/${sala.id}`)}
+                key={comunidade.id}
+                onClick={() => navigate(`/comunidades/${comunidade.id}`)}
                 className="glass-panel group flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-colors hover:bg-surface-container-high"
               >
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-surface-container-highest text-lg font-bold text-primary">
-                  {sala.nome.slice(0, 2).toUpperCase()}
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-surface-container-highest text-lg font-bold text-primary overflow-hidden">
+                  {comunidade.icone_url ? (
+                    <img src={resolveFotoUrl(comunidade.icone_url)} alt={comunidade.nome} className="h-full w-full object-cover" />
+                  ) : (
+                    comunidade.nome.slice(0, 2).toUpperCase()
+                  )}
                 </div>
                 <div className="flex-grow">
-                  <h3 className="text-label-md text-on-surface transition-colors group-hover:text-primary">{sala.nome}</h3>
+                  <h3 className="text-label-md text-on-surface transition-colors group-hover:text-primary">{comunidade.nome}</h3>
                   <p className="mt-1 flex items-center gap-1 text-label-sm text-on-surface-variant">
                     <span className="inline-block h-2 w-2 rounded-full bg-tertiary" />
-                    {sala.participantes_online ?? 0} online
+                    {comunidade.total_membros ?? 1} membros
                   </p>
                 </div>
                 <ArrowRight size={18} className="text-outline transition-colors group-hover:text-on-surface" />
@@ -141,6 +182,15 @@ export default function Perfil() {
           </div>
         )}
       </section>
+
+      {/* Modal de edição */}
+      {modalEditarAberto && (
+        <EditarPerfilModal
+          usuario={usuario}
+          onClose={() => setModalEditarAberto(false)}
+          onUpdated={handlePerfilAtualizado}
+        />
+      )}
     </AppShell>
   );
 }

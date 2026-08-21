@@ -11,20 +11,29 @@ const (
 // para uma linha em `sala` criada automaticamente junto com o canal, só
 // para reaproveitar o fluxo de LiveKit que a Sala já resolve (token,
 // presença). Canais de texto nunca têm SalaID.
+// internal/models/canal.go
 type Canal struct {
-	ID           int64      `json:"id" db:"id"`
-	ComunidadeID int64      `json:"comunidade_id" db:"comunidade_id"`
-	Nome         string     `json:"nome" db:"nome"`
-	Tipo         string     `json:"tipo" db:"tipo"`
-	Posicao      int        `json:"posicao" db:"posicao"`
-	SalaID       *int64     `json:"sala_id" db:"sala_id"`
-	CreatedAt    *time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt    *time.Time `json:"-" db:"deleted_at"`
+	ID             int64      `json:"id" db:"id"`
+	ComunidadeID   int64      `json:"comunidade_id" db:"comunidade_id"`
+	Nome           string     `json:"nome" db:"nome"`
+	Tipo           string     `json:"tipo" db:"tipo"`
+	Posicao        int        `json:"posicao" db:"posicao"`
+	SalaID         *int64     `json:"sala_id,omitempty" db:"sala_id"`
+	CreatedAt      *time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt      *time.Time `json:"updated_at" db:"updated_at"`
+	DeletedAt      *time.Time `json:"-" db:"deleted_at"`
+	
+	// Campos calculados (não persistidos)
+	ParticipantesOnline int                `json:"participantes_online,omitempty" db:"-"`
+	ParticipantesLista  []ParticipanteInfo `json:"participantes_lista,omitempty" db:"-"`
+}
 
-	// Preenchido em memória (não é coluna) — quantos participantes estão
-	// agora na chamada, só para canais de voz.
-	ParticipantesOnline int `json:"participantes_online,omitempty" db:"-"`
+// ParticipanteInfo para retornar na API
+type ParticipanteInfo struct {
+	Identity   string `json:"identity"`
+	Nome       string `json:"nome"`
+	Foto       string `json:"foto,omitempty"`
+	MicEnabled bool   `json:"micEnabled"`
 }
 
 func (Canal) TableName() string { return "canal" }
