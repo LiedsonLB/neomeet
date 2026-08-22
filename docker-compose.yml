@@ -139,8 +139,12 @@ services:
       - BACKEND_HOST=api
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - api
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
     networks:
       - resenha-network
 
