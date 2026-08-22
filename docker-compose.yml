@@ -72,32 +72,32 @@ services:
     container_name: resenha-api
     restart: unless-stopped
     env_file:
-      - .env
-    environment:
-      - APP_NAME=Resenha
-      - PORT=8080
-      - TOKEN_KEY=${TOKEN_KEY:-change-me}
-      - APP_KEY=${APP_KEY:-WEBTESTE}
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_DATABASE=${MYSQL_DATABASE}
-      - DB_USERNAME=root
-      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
-      - RABBIT_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
-      - MAIL_MAILER=smtp
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_PORT=${MAIL_PORT:-587}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_ENCRYPTION=tls
-      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
-      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Resenha}
-      - VERIFICATION_SECRET=${VERIFICATION_SECRET}
-      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
-      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - LIVEKIT_URL=ws://livekit:7880
-      - UPLOAD_DIR=/app/uploads
+      - ./backend/.env
+    # environment:
+    #   - APP_NAME=Resenha
+    #   - PORT=8080
+    #   - TOKEN_KEY=${TOKEN_KEY:-change-me}
+    #   - APP_KEY=${APP_KEY:-WEBTESTE}
+    #   - DB_HOST=mysql
+    #   - DB_PORT=3306
+    #   - DB_DATABASE=${MYSQL_DATABASE}
+    #   - DB_USERNAME=root
+    #   - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    #   - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+    #   - RABBIT_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
+    #   - MAIL_MAILER=smtp
+    #   - MAIL_HOST=${MAIL_HOST}
+    #   - MAIL_PORT=${MAIL_PORT:-587}
+    #   - MAIL_USERNAME=${MAIL_USERNAME}
+    #   - MAIL_PASSWORD=${MAIL_PASSWORD}
+    #   - MAIL_ENCRYPTION=tls
+    #   - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+    #   - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Resenha}
+    #   - VERIFICATION_SECRET=${VERIFICATION_SECRET}
+    #   - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+    #   - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+    #   - LIVEKIT_URL=ws://livekit:7880
+    #   - UPLOAD_DIR=/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
