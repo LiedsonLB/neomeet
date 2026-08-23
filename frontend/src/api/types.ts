@@ -97,6 +97,7 @@ export interface Canal {
   id: number;
   comunidade_id: number;
   nome: string;
+  icone?: string | null;
   tipo: 'texto' | 'voz';
   sala_id: number | null;
   posicao: number;

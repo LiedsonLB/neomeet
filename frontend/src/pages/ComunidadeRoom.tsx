@@ -5,7 +5,7 @@ import {
   Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, PhoneOff, X,
   MessageSquare, Loader2,
   Home, ChevronLeft, ChevronRight,
-  ChevronDown, ChevronUp, LogIn,
+  ChevronDown, ChevronUp, LogIn, Smile,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, canalApi, salaApi, resolveFotoUrl } from '../api/client';
@@ -16,6 +16,7 @@ import CriarCanalModal from '../components/CriarCanalModal';
 import GerenciarComunidadeModal from '../components/GerenciarComunidadeModal';
 import { useVoiceChannel } from '../hooks/useVoiceChannel';
 import VoiceRoomEmbed from '../components/VoiceRoomEmbed';
+import AdmBadge, { isAdm } from '../components/AdmBadge';
 
 const CANAIS_POLL_MS = 8000;
 
@@ -303,7 +304,9 @@ export default function ComunidadeRoom() {
                 onClick={() => abrirCanalTexto(canal)}
                 className={`group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${canalTextoAtivoId === canal.id && !mostrarVoz && ehMembro ? 'bg-secondary-container/40 font-semibold text-on-surface' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`}
               >
-                <Hash size={16} className="shrink-0 opacity-70" />
+                <span className="shrink-0 w-4 text-center text-sm leading-none opacity-80">
+                  {canal.icone ? canal.icone : <Hash size={14} />}
+                </span>
                 <span className="flex-1 truncate">{canal.nome}</span>
                 {!ehMembro && <span className="text-[10px] text-outline">🔒</span>}
                 {souDono && (
@@ -338,7 +341,9 @@ export default function ComunidadeRoom() {
                     onClick={() => abrirCanalVoz(canal)}
                     className={`group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${conectadoAqui ? 'bg-tertiary/10 font-semibold text-tertiary' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}`}
                   >
-                    <Volume2 size={16} className="shrink-0 opacity-70" />
+                    <span className="shrink-0 w-4 text-center text-sm leading-none opacity-80">
+                      {canal.icone ? canal.icone : <Volume2 size={14} />}
+                    </span>
                     <span className="flex-1 truncate">{canal.nome}</span>
                     {!ehMembro && <span className="text-[10px] text-outline">🔒</span>}
                     {entrandoNoCanal === canal.id ? (
@@ -354,7 +359,7 @@ export default function ComunidadeRoom() {
                   </button>
 
                   {/* Lista de participantes */}
-                  {totalParticipantes > 0 && ehMembro && (
+                  {totalParticipantes > 0 && (
                     <div className={`ml-6 mt-0.5 flex flex-col gap-1 border-l border-outline-variant/40 pl-3 ${!conectadoAqui ? 'opacity-70' : ''}`}>
                       {(mostrarTodos ? participantes : participantes.slice(0, 3)).map(p => (
                         <div key={p.identity} className="flex items-center gap-1.5 justify-between py-0.5">
@@ -371,7 +376,7 @@ export default function ComunidadeRoom() {
                             </span>
                           </div>
                           {!p.micEnabled && <MicOff size={10} className="text-error shrink-0" />}
-                          {!conectadoAqui && (
+                          {!conectadoAqui && ehMembro && (
                             <span className="text-[8px] text-outline ml-1">●</span>
                           )}
                         </div>
@@ -464,7 +469,10 @@ export default function ComunidadeRoom() {
         <div className="flex items-center gap-2 border-t border-outline-variant/60 bg-surface-container px-3 py-2.5">
           <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} moldura={usuario?.moldura} size={30} />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold text-on-surface">{usuario?.nome}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="truncate text-xs font-semibold text-on-surface">{usuario?.nome}</span>
+              <AdmBadge email={usuario?.email} />
+            </div>
             <div className="text-[10px] text-tertiary">Online</div>
           </div>
           <button onClick={() => navigate('/perfil')} title="Configurações" className="text-on-surface-variant hover:text-on-surface">
@@ -504,7 +512,7 @@ export default function ComunidadeRoom() {
             onDisconnect={sairDaVoz}
           />
         ) : canalTextoAtivo && session && usuario && ehMembro ? (
-          <ChatPanel session={session} canal={canalTextoAtivo} meuUsuarioId={usuario.id} />
+          <ChatPanel session={session} canal={canalTextoAtivo} meuUsuarioId={usuario.id} meuEmail={usuario.email} />
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 text-on-surface-variant">
             {!ehMembro ? (

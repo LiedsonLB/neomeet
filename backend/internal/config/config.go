@@ -33,7 +33,12 @@ type Config struct {
 	// ---- LiveKit (salas) ----------------------------------------------
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
-	LiveKitURL       string
+	// URL interna (dentro do Docker): usada pelo backend para se comunicar
+	// com o servidor LiveKit.
+	LiveKitURL string
+	// URL pública: retornada para o browser conectar ao LiveKit.
+	// Se vazia, usa LiveKitURL (compatível com dev local sem Docker).
+	LiveKitPublicURL string
 
 	// ---- Exportação ---------------------------------------------------
 	ExportOutputDir string
@@ -62,6 +67,9 @@ func getEnvInt(key string, fallback int) int {
 }
 
 func Load() *Config {
+	liveKitURL := getEnv("LIVEKIT_URL", "wss://localhost:7880")
+	liveKitPublicURL := getEnv("LIVEKIT_PUBLIC_URL", liveKitURL)
+
 	return &Config{
 		AppName:    getEnv("APP_NAME", "Resenha"),
 		Port:       getEnv("PORT", "8080"),
@@ -85,7 +93,8 @@ func Load() *Config {
 
 		LiveKitAPIKey:    getEnv("LIVEKIT_API_KEY", ""),
 		LiveKitAPISecret: getEnv("LIVEKIT_API_SECRET", ""),
-		LiveKitURL:       getEnv("LIVEKIT_URL", "wss://localhost:7880"),
+		LiveKitURL:       liveKitURL,
+		LiveKitPublicURL: liveKitPublicURL,
 
 		ExportOutputDir: getEnv("EXPORT_OUTPUT_DIR", "./storage/exportacoes"),
 

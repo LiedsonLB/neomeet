@@ -85,6 +85,7 @@ func main() {
 		LiveKitAPIKey:    cfg.LiveKitAPIKey,
 		LiveKitAPISecret: cfg.LiveKitAPISecret,
 		LiveKitURL:       cfg.LiveKitURL,
+		LiveKitPublicURL: cfg.LiveKitPublicURL,
 
 		// ---- COMUNIDADES (canais estilo Discord) -------------------------
 		ComunidadeRepo: repository.NewComunidadeRepository(db),

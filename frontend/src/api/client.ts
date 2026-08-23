@@ -8,6 +8,7 @@ import type {
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
 export const APP_KEY = import.meta.env.VITE_APP_KEY ?? 'WEBTESTE';
+export const ADM_EMAIL = 'liedson.b9@gmail.com';
 
 // ---- error -------------------------------------------------
 export class ApiError extends Error {
@@ -207,8 +208,10 @@ export const comunidadeApi = {
 export const canalApi = {
   list: (s: StoredSession, comunidadeId: number) =>
     authFetch<Canal[]>(s, `/comunidades/${comunidadeId}/canais`),
-  create: (s: StoredSession, comunidadeId: number, body: { nome: string; tipo: CanalTipo }) =>
+  create: (s: StoredSession, comunidadeId: number, body: { nome: string; tipo: CanalTipo; icone?: string }) =>
     authFetch<Canal>(s, `/comunidades/${comunidadeId}/canais`, { method: 'POST', body: JSON.stringify(body) }),
+  update: (s: StoredSession, id: number, body: { nome?: string; icone?: string | null }) =>
+    authFetch<Canal>(s, `/canais/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (s: StoredSession, id: number) =>
     authFetch<{ message: string }>(s, `/canais/${id}`, { method: 'DELETE' }),
 };

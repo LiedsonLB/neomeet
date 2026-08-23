@@ -20,16 +20,21 @@ type SalaHandler struct {
 	liveKitAPIKey    string
 	liveKitAPISecret string
 	liveKitURL       string
+	liveKitPublicURL string
 }
 
 func NewSalaHandler(
 	repo *repository.SalaRepository,
 	hub *realtime.Hub,
-	apiKey, apiSecret, url string,
+	apiKey, apiSecret, url, publicURL string,
 ) *SalaHandler {
+	if publicURL == "" {
+		publicURL = url
+	}
 	return &SalaHandler{
 		repo: repo, hub: hub,
-		liveKitAPIKey: apiKey, liveKitAPISecret: apiSecret, liveKitURL: url,
+		liveKitAPIKey: apiKey, liveKitAPISecret: apiSecret,
+		liveKitURL: url, liveKitPublicURL: publicURL,
 	}
 }
 
@@ -185,7 +190,7 @@ func (h *SalaHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, 200, map[string]any{
 		"token": token,
-		"url":   h.liveKitURL,
+		"url":   h.liveKitPublicURL,
 		"room":  sala.Codigo,
 		"sala":  sala,
 	})

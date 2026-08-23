@@ -16,11 +16,11 @@ func NewCanalRepository(db *sql.DB) *CanalRepository {
 	return &CanalRepository{db: db}
 }
 
-const canalColumns = "id, comunidade_id, nome, tipo, posicao, sala_id, created_at, updated_at, deleted_at"
+const canalColumns = "id, comunidade_id, nome, icone, tipo, posicao, sala_id, created_at, updated_at, deleted_at"
 
 func scanCanal(row interface{ Scan(...any) error }) (*models.Canal, error) {
 	c := &models.Canal{}
-	err := row.Scan(&c.ID, &c.ComunidadeID, &c.Nome, &c.Tipo, &c.Posicao, &c.SalaID,
+	err := row.Scan(&c.ID, &c.ComunidadeID, &c.Nome, &c.Icone, &c.Tipo, &c.Posicao, &c.SalaID,
 		&c.CreatedAt, &c.UpdatedAt, &c.DeletedAt)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func scanCanal(row interface{ Scan(...any) error }) (*models.Canal, error) {
 
 // Create insere um canal. salaID vem preenchido pelo handler quando
 // tipo=="voz" (depois de criar a Sala/LiveKit correspondente).
-func (r *CanalRepository) Create(comunidadeID int64, nome, tipo string, salaID *int64) (*models.Canal, error) {
+func (r *CanalRepository) Create(comunidadeID int64, nome, tipo string, salaID *int64, icone *string) (*models.Canal, error) {
 	if nome == "" {
 		return nil, apperr.New("O nome do canal é obrigatório.", 422)
 	}
@@ -41,9 +41,9 @@ func (r *CanalRepository) Create(comunidadeID int64, nome, tipo string, salaID *
 	_ = r.db.QueryRow(`SELECT COALESCE(MAX(posicao), -1) + 1 FROM canal WHERE comunidade_id = ? AND tipo = ?`, comunidadeID, tipo).Scan(&posicao)
 
 	res, err := r.db.Exec(
-		`INSERT INTO canal (comunidade_id, nome, tipo, posicao, sala_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-		comunidadeID, nome, tipo, posicao, salaID,
+		`INSERT INTO canal (comunidade_id, nome, icone, tipo, posicao, sala_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		comunidadeID, nome, icone, tipo, posicao, salaID,
 	)
 	if err != nil {
 		return nil, err
@@ -87,6 +87,17 @@ func (r *CanalRepository) ListByComunidade(comunidadeID int64) ([]*models.Canal,
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (r *CanalRepository) Update(id int64, nome string, icone *string) (*models.Canal, error) {
+	_, err := r.db.Exec(
+		`UPDATE canal SET nome = ?, icone = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+		nome, icone, id,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return r.FindByID(id)
 }
 
 func (r *CanalRepository) SoftDelete(id int64) error {

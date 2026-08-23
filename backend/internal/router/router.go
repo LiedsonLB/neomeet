@@ -33,6 +33,7 @@ type Deps struct {
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
 	LiveKitURL       string
+	LiveKitPublicURL string
 
 	// ---- Comunidades (estilo Discord: canais de texto/voz) -------------
 	ComunidadeRepo *repository.ComunidadeRepository
@@ -95,7 +96,7 @@ func New(d Deps) http.Handler {
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(d.UploadDir))))
 
 	// ---- salas (LiveKit) -----------------------------------------------
-	sala := handlers.NewSalaHandler(d.SalaRepo, d.RealtimeHub, d.LiveKitAPIKey, d.LiveKitAPISecret, d.LiveKitURL)
+	sala := handlers.NewSalaHandler(d.SalaRepo, d.RealtimeHub, d.LiveKitAPIKey, d.LiveKitAPISecret, d.LiveKitURL, d.LiveKitPublicURL)
 	mux.Handle("GET /salas", auth(http.HandlerFunc(sala.All)))
 	mux.Handle("GET /salas/{id}", auth(http.HandlerFunc(sala.Find)))
 	mux.Handle("POST /salas", auth(http.HandlerFunc(sala.Save)))
@@ -118,6 +119,7 @@ func New(d Deps) http.Handler {
 	canal := handlers.NewCanalHandler(d.CanalRepo, d.ComunidadeRepo, d.SalaRepo, d.RealtimeHub)
 	mux.Handle("GET /comunidades/{id}/canais", auth(http.HandlerFunc(canal.All)))
 	mux.Handle("POST /comunidades/{id}/canais", auth(http.HandlerFunc(canal.Save)))
+	mux.Handle("PATCH /canais/{id}", auth(http.HandlerFunc(canal.Update)))
 	mux.Handle("DELETE /canais/{id}", auth(http.HandlerFunc(canal.Delete)))
 
 	// ---- mensagens de um canal de texto ----------------------------------

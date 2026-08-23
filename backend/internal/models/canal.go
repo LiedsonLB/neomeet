@@ -16,6 +16,7 @@ type Canal struct {
 	ID             int64      `json:"id" db:"id"`
 	ComunidadeID   int64      `json:"comunidade_id" db:"comunidade_id"`
 	Nome           string     `json:"nome" db:"nome"`
+	Icone          *string    `json:"icone,omitempty" db:"icone"`
 	Tipo           string     `json:"tipo" db:"tipo"`
 	Posicao        int        `json:"posicao" db:"posicao"`
 	SalaID         *int64     `json:"sala_id,omitempty" db:"sala_id"`

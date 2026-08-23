@@ -12,11 +12,18 @@ interface Props {
   onCreated: (c: Canal) => void;
 }
 
+// Emojis sugeridos por categoria
+const ICONES_TEXTO = ['💬', '📢', '📌', '🎯', '📝', '🗣️', '❓', '💡', '🔔', '🌐', '🎨', '📚', '🤝', '🛠️', '🚀'];
+const ICONES_VOZ  = ['🎵', '🔊', '🎮', '🎙️', '🎧', '🎤', '🔴', '🟢', '🎬', '🎭', '🎲', '🏆', '⚡', '🌟', '🔥'];
+
 export default function CriarCanalModal({ session, comunidadeId, tipoInicial = 'texto', onClose, onCreated }: Props) {
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<CanalTipo>(tipoInicial);
+  const [icone, setIcone] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  const iconesSugeridos = tipo === 'voz' ? ICONES_VOZ : ICONES_TEXTO;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +31,12 @@ export default function CriarCanalModal({ session, comunidadeId, tipoInicial = '
     setLoading(true);
     setErro(null);
     try {
-      const created = await canalApi.create(session, comunidadeId, { nome: nome.trim().toLowerCase().replace(/\s+/g, '-'), tipo });
+      const body: { nome: string; tipo: CanalTipo; icone?: string } = {
+        nome: nome.trim().toLowerCase().replace(/\s+/g, '-'),
+        tipo,
+      };
+      if (icone) body.icone = icone;
+      const created = await canalApi.create(session, comunidadeId, body);
       onCreated(created);
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao criar o canal.');
@@ -47,14 +59,14 @@ export default function CriarCanalModal({ session, comunidadeId, tipoInicial = '
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setTipo('texto')}
+                onClick={() => { setTipo('texto'); setIcone(''); }}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${tipo === 'texto' ? 'border-primary-container bg-primary-container/15 text-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`}
               >
                 <Hash size={16} /> Texto
               </button>
               <button
                 type="button"
-                onClick={() => setTipo('voz')}
+                onClick={() => { setTipo('voz'); setIcone(''); }}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${tipo === 'voz' ? 'border-primary-container bg-primary-container/15 text-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`}
               >
                 <Volume2 size={16} /> Voz
@@ -62,11 +74,36 @@ export default function CriarCanalModal({ session, comunidadeId, tipoInicial = '
             </div>
           </div>
 
+          {/* Ícone do canal */}
+          <div>
+            <label className="field-label">Ícone do canal <span className="text-outline font-normal">(opcional)</span></label>
+            <div className="flex flex-wrap gap-1.5 rounded-lg border border-outline-variant bg-surface-container p-2">
+              <button
+                type="button"
+                onClick={() => setIcone('')}
+                title="Padrão"
+                className={`flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors ${icone === '' ? 'bg-primary-container text-primary ring-1 ring-primary' : 'hover:bg-surface-container-high'}`}
+              >
+                {tipo === 'texto' ? <Hash size={14} /> : <Volume2 size={14} />}
+              </button>
+              {iconesSugeridos.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setIcone(emoji)}
+                  className={`flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors ${icone === emoji ? 'bg-primary-container ring-1 ring-primary' : 'hover:bg-surface-container-high'}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="field-label">Nome do canal</label>
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline">
-                {tipo === 'texto' ? <Hash size={15} /> : <Volume2 size={15} />}
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-outline text-base leading-none">
+                {icone ? icone : (tipo === 'texto' ? <Hash size={15} /> : <Volume2 size={15} />)}
               </span>
               <input
                 className="field-input pl-9"

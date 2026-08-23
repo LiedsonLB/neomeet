@@ -106,8 +106,9 @@ func (h *CanalHandler) All(w http.ResponseWriter, r *http.Request) {
 }
 
 type canalPayload struct {
-	Nome string `json:"nome"`
-	Tipo string `json:"tipo"` // "texto" | "voz"
+	Nome  string  `json:"nome"`
+	Tipo  string  `json:"tipo"`  // "texto" | "voz"
+	Icone *string `json:"icone"` // emoji ou ícone do canal
 }
 
 // Save handles POST /comunidades/{id}/canais
@@ -146,12 +147,46 @@ func (h *CanalHandler) Save(w http.ResponseWriter, r *http.Request) {
 		salaID = &sala.ID
 	}
 
-	created, err := h.repo.Create(comunidadeID, payload.Nome, payload.Tipo, salaID)
+	created, err := h.repo.Create(comunidadeID, payload.Nome, payload.Tipo, salaID, payload.Icone)
 	if err != nil {
 		writeAppErr(w, err)
 		return
 	}
 	httpx.JSON(w, 201, created)
+}
+
+// Update handles PATCH /canais/{id} — permite ao dono renomear ou trocar o ícone
+func (h *CanalHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	canal, err := h.repo.FindByID(id)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	if !h.requireDono(w, r, canal.ComunidadeID) {
+		return
+	}
+	var payload canalPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		httpx.Error(w, "Requisição inválida.", 422)
+		return
+	}
+	if payload.Nome != "" {
+		canal.Nome = payload.Nome
+	}
+	if payload.Icone != nil {
+		canal.Icone = payload.Icone
+	}
+	updated, err := h.repo.Update(canal.ID, canal.Nome, canal.Icone)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	httpx.JSON(w, 200, updated)
 }
 
 // Delete handles DELETE /canais/{id}
