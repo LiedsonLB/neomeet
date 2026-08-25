@@ -3,7 +3,8 @@
 // ============================================================
 import type {
   LoginResponse, ApiErrorBody, Usuario, Paginated,
-  Sala, SalaTokenResponse, Comunidade, Canal, CanalMensagem, CanalTipo,
+  Sala, SalaTokenResponse, Comunidade, ComunidadeMembro, Canal, CanalMensagem, CanalTipo,
+  ComunidadeSom, Visibilidade,
 } from './types';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -175,6 +176,17 @@ export const uploadApi = {
   // Atalhos por conveniência — todos chamam `imagem` por baixo.
   foto: (s: StoredSession, file: File, oldFotoUrl?: string | null) => uploadApi.imagem(s, file, 'fotos', oldFotoUrl),
   banner: (s: StoredSession, file: File, oldBannerUrl?: string | null) => uploadApi.imagem(s, file, 'banners', oldBannerUrl),
+  /** Envia um clipe de áudio (mp3/wav/ogg/m4a) pro soundboard de uma comunidade. */
+  som: async (s: StoredSession, file: File): Promise<{ url: string }> => {
+    const form = new FormData();
+    form.append('arquivo', file);
+    const res = await fetch(`${API_URL}/upload/som`, {
+      method: 'POST',
+      headers: { TokenUser: tokenUserHeader(s) },
+      body: form,
+    });
+    return parseJsonOrThrow<{ url: string }>(res);
+  },
 };
 
 // Resolve o campo `foto` (que pode vir como caminho relativo do backend,
@@ -190,16 +202,28 @@ export function resolveFotoUrl(foto: string | null | undefined): string | null {
 // COMUNIDADES
 // ============================================================
 export const comunidadeApi = {
+  /** "Minhas comunidades": dono, membro ou solicitação pendente. */
   list: (s: StoredSession) => authFetch<Comunidade[]>(s, '/comunidades'),
+  /** "Explorar comunidades": públicas das quais eu ainda não faço parte. */
+  explorar: (s: StoredSession) => authFetch<Comunidade[]>(s, '/comunidades/explorar'),
   find: (s: StoredSession, id: number) => authFetch<Comunidade>(s, `/comunidades/${id}`),
-  create: (s: StoredSession, body: { nome: string; descricao?: string | null; icone_url?: string | null; banner_url?: string | null }) =>
+  create: (s: StoredSession, body: { nome: string; descricao?: string | null; visibilidade?: Visibilidade; icone_url?: string | null; banner_url?: string | null }) =>
     authFetch<Comunidade>(s, '/comunidades', { method: 'POST', body: JSON.stringify(body) }),
-  update: (s: StoredSession, id: number, body: { nome?: string; descricao?: string | null; icone_url?: string | null; banner_url?: string | null }) =>
+  update: (s: StoredSession, id: number, body: { nome?: string; descricao?: string | null; visibilidade?: Visibilidade; icone_url?: string | null; banner_url?: string | null }) =>
     authFetch<Comunidade>(s, `/comunidades/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (s: StoredSession, id: number) =>
     authFetch<{ message: string }>(s, `/comunidades/${id}`, { method: 'DELETE' }),
+  /** Pública: entra na hora. Privada: cria uma solicitação pendente
+   * (devolve `papel: 'pendente'`) até o dono aprovar. */
   entrar: (s: StoredSession, id: number) =>
-    authFetch<{ message: string }>(s, `/comunidades/${id}/entrar`, { method: 'POST' }),
+    authFetch<{ message: string; papel: 'membro' | 'pendente' }>(s, `/comunidades/${id}/entrar`, { method: 'POST' }),
+  /** Só o dono vê — quem está esperando aprovação numa comunidade privada. */
+  pendentes: (s: StoredSession, id: number) =>
+    authFetch<ComunidadeMembro[]>(s, `/comunidades/${id}/pendentes`),
+  aprovar: (s: StoredSession, comunidadeId: number, usuarioId: number) =>
+    authFetch<{ message: string }>(s, `/comunidades/${comunidadeId}/membros/${usuarioId}/aprovar`, { method: 'POST' }),
+  rejeitar: (s: StoredSession, comunidadeId: number, usuarioId: number) =>
+    authFetch<{ message: string }>(s, `/comunidades/${comunidadeId}/membros/${usuarioId}`, { method: 'DELETE' }),
 };
 
 // ============================================================
@@ -224,4 +248,20 @@ export const mensagemApi = {
     authFetch<CanalMensagem[]>(s, `/canais/${canalId}/mensagens${buildQuery({ after: opts?.after, limit: opts?.limit })}`),
   send: (s: StoredSession, canalId: number, conteudo: string) =>
     authFetch<CanalMensagem>(s, `/canais/${canalId}/mensagens`, { method: 'POST', body: JSON.stringify({ conteudo }) }),
+  edit: (s: StoredSession, mensagemId: number, conteudo: string) =>
+    authFetch<CanalMensagem>(s, `/mensagens/${mensagemId}`, { method: 'PUT', body: JSON.stringify({ conteudo }) }),
+  delete: (s: StoredSession, mensagemId: number) =>
+    authFetch<{ message: string }>(s, `/mensagens/${mensagemId}`, { method: 'DELETE' }),
+};
+
+// ============================================================
+// SOUNDBOARD (efeitos sonoros de uma comunidade)
+// ============================================================
+export const comunidadeSomApi = {
+  list: (s: StoredSession, comunidadeId: number) =>
+    authFetch<ComunidadeSom[]>(s, `/comunidades/${comunidadeId}/sons`),
+  create: (s: StoredSession, comunidadeId: number, body: { nome: string; emoji?: string | null; arquivo_url: string }) =>
+    authFetch<ComunidadeSom>(s, `/comunidades/${comunidadeId}/sons`, { method: 'POST', body: JSON.stringify(body) }),
+  delete: (s: StoredSession, somId: number) =>
+    authFetch<{ message: string }>(s, `/sons/${somId}`, { method: 'DELETE' }),
 };

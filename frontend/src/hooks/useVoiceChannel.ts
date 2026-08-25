@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, type Participant } from 'livekit-client';
+import { Room, RoomEvent, Track, RemoteAudioTrack, type Participant } from 'livekit-client';
 import { sounds } from '../utils/sounds';
 
 export interface ParticipanteVoz {
@@ -10,6 +10,10 @@ export interface ParticipanteVoz {
   isSpeaking: boolean;
   micEnabled: boolean;
   isLocal: boolean;
+  /** Volume local (só afeta o que EU escuto, não é enviado a ninguém). */
+  volume: number;
+  /** Silenciado só pra mim (independe do deafen geral). */
+  mutadoParaMim: boolean;
 }
 
 // A metadata do token (ver backend/internal/handlers/sala_handler.go,
@@ -26,28 +30,21 @@ function parseMetadata(raw: string): { foto: string | null; moldura: string | nu
   }
 }
 
-function toParticipante(p: Participant, isLocal: boolean): ParticipanteVoz {
-  const { foto, moldura } = parseMetadata(p.metadata ?? '');
-  return {
-    identity: p.identity,
-    nome: p.name || p.identity,
-    foto,
-    moldura,
-    isSpeaking: p.isSpeaking,
-    micEnabled: p.isMicrophoneEnabled,
-    isLocal,
-  };
-}
-
 /**
  * Gerencia uma sala de voz do LiveKit diretamente (sem os componentes
  * prontos de @livekit/components-react) — assim os controles de
  * mute/deafen podem morar na barra fixa da sidebar (fora da área do
  * canal/chat ativo), exatamente como no Discord, em vez de ficarem presos
  * dentro de uma árvore <LiveKitRoom> específica de uma tela.
+ *
+ * A `Room` conectada aqui também é exposta (`room`) pra qualquer outro
+ * componente que precise renderizar vídeo/tela compartilhada em cima da
+ * MESMA conexão (ver VoiceRoomEmbed.tsx) — evita abrir uma segunda conexão
+ * paralela, que era a causa do mic/deafen "só funcionar na aside".
  */
 export function useVoiceChannel() {
   const roomRef = useRef<Room | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
   const [canalId, setCanalId] = useState<number | null>(null);
   const [nomeCanal, setNomeCanal] = useState<string>('');
   const [conectando, setConectando] = useState(false);
@@ -57,33 +54,68 @@ export function useVoiceChannel() {
   const [deafened, setDeafened] = useState(false);
   const [participantes, setParticipantes] = useState<ParticipanteVoz[]>([]);
 
-  const refreshParticipantes = useCallback(() => {
-    const room = roomRef.current;
-    if (!room) { setParticipantes([]); return; }
-    const lista: ParticipanteVoz[] = [toParticipante(room.localParticipant, true)];
-    room.remoteParticipants.forEach(p => lista.push(toParticipante(p, false)));
-    setParticipantes(lista);
+  const volumesRef = useRef<Record<string, number>>({});
+  const mutadosRef = useRef<Set<string>>(new Set());
+  // Guard síncrono contra chamadas duplicadas de connect() — um guard só
+  // em state (ex.: `conectando`) não é suficiente porque setState é
+  // assíncrono/batched: um segundo clique (ou o StrictMode do React
+  // invocando o handler 2x em dev) pode disparar connect() de novo ANTES
+  // do primeiro `setConectando(true)` re-renderizar. Isso é exatamente o
+  // que causava conectar, publicar o mic e cair pra reconectar em outra
+  // sala/token um instante depois: eram duas conexões concorrentes pra
+  // canais diferentes (ou a mesma, mas com token novo) brigando entre si.
+  const conectandoRef = useRef(false);
+
+  const toParticipante = useCallback((p: Participant, isLocal: boolean): ParticipanteVoz => {
+    const { foto, moldura } = parseMetadata(p.metadata ?? '');
+    return {
+      identity: p.identity,
+      nome: p.name || p.identity,
+      foto,
+      moldura,
+      isSpeaking: p.isSpeaking,
+      micEnabled: p.isMicrophoneEnabled,
+      isLocal,
+      volume: volumesRef.current[p.identity] ?? 1,
+      mutadoParaMim: mutadosRef.current.has(p.identity),
+    };
   }, []);
+
+  const refreshParticipantes = useCallback(() => {
+    const r = roomRef.current;
+    if (!r) { setParticipantes([]); return; }
+    const lista: ParticipanteVoz[] = [toParticipante(r.localParticipant, true)];
+    r.remoteParticipants.forEach(p => lista.push(toParticipante(p, false)));
+    setParticipantes(lista);
+  }, [toParticipante]);
 
   // Aplica o estado de deafen a todas as publicações de áudio remotas já
   // conhecidas — chamado tanto ao alternar o deafen quanto quando um novo
   // participante entra enquanto já estamos surdos.
   const aplicarDeafenRemoto = useCallback((sur: boolean) => {
-    const room = roomRef.current;
-    if (!room) return;
-    room.remoteParticipants.forEach(p => {
+    const r = roomRef.current;
+    if (!r) return;
+    r.remoteParticipants.forEach(p => {
       p.audioTrackPublications.forEach(pub => {
-        if (pub.kind === Track.Kind.Audio) pub.setEnabled(!sur);
+        if (pub.kind === Track.Kind.Audio) pub.setEnabled(!sur && !mutadosRef.current.has(p.identity));
       });
     });
   }, []);
 
   const disconnect = useCallback(async () => {
-    const room = roomRef.current;
-    if (room) {
-      await room.disconnect();
+    const r = roomRef.current;
+    if (r) {
+      try {
+        await r.disconnect();
+      } catch (e) {
+        // Ignora erros ao desconectar (já pode estar desconectado)
+        console.debug('[VoiceChannel] Erro ao desconectar (ignorado):', e);
+      }
       roomRef.current = null;
     }
+    volumesRef.current = {};
+    mutadosRef.current = new Set();
+    setRoom(null);
     setCanalId(null);
     setNomeCanal('');
     setConectado(false);
@@ -91,9 +123,18 @@ export function useVoiceChannel() {
   }, []);
 
   const connect = useCallback(async (novoCanalId: number, nome: string, token: string, url: string) => {
+    // Já tem uma conexão em andamento (ou pra ESSE mesmo canal, ou pra
+    // outro) — ignora a chamada extra em vez de deixar duas rodarem juntas.
+    if (conectandoRef.current) return;
+    conectandoRef.current = true;
+
     // Trocando de canal de voz: encerra a conexão anterior primeiro.
     if (roomRef.current) {
-      await roomRef.current.disconnect();
+      try {
+        await roomRef.current.disconnect();
+      } catch {
+        // Ignora erros ao desconectar
+      }
       roomRef.current = null;
     }
 
@@ -101,33 +142,81 @@ export function useVoiceChannel() {
     setErro(null);
     setCanalId(novoCanalId);
     setNomeCanal(nome);
+    volumesRef.current = {};
+    mutadosRef.current = new Set();
 
-    const room = new Room();
-    roomRef.current = room;
+    const r = new Room();
+    roomRef.current = r;
 
-    room.on(RoomEvent.ParticipantConnected, () => {
+    // ============================================================
+    // LISTENERS DO LIVEKIT
+    // ============================================================
+
+    r.on(RoomEvent.ParticipantConnected, () => {
       sounds.chamadaEntrada();
       refreshParticipantes();
     });
-    room.on(RoomEvent.ParticipantDisconnected, refreshParticipantes);
-    room.on(RoomEvent.ActiveSpeakersChanged, refreshParticipantes);
-    room.on(RoomEvent.TrackMuted, refreshParticipantes);
-    room.on(RoomEvent.TrackUnmuted, refreshParticipantes);
-    room.on(RoomEvent.TrackSubscribed, (track, pub) => {
+
+    r.on(RoomEvent.ParticipantDisconnected, refreshParticipantes);
+    r.on(RoomEvent.ActiveSpeakersChanged, refreshParticipantes);
+    r.on(RoomEvent.TrackMuted, refreshParticipantes);
+    r.on(RoomEvent.TrackUnmuted, refreshParticipantes);
+
+    r.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
       if (track.kind === Track.Kind.Audio) {
         track.attach(); // cria o <audio> e já toca
-        pub.setEnabled(true);
+        const audioTrack = track as RemoteAudioTrack;
+        audioTrack.setVolume(volumesRef.current[participant.identity] ?? 1);
+        pub.setEnabled(!deafened && !mutadosRef.current.has(participant.identity));
       }
       refreshParticipantes();
     });
-    room.on(RoomEvent.Disconnected, () => {
+
+    r.on(RoomEvent.Disconnected, () => {
       setConectado(false);
       setParticipantes([]);
     });
 
+    // Soundboard: alguém (inclusive eu, se outra aba) tocou um som pra
+    // sala inteira ouvir — recebido via LiveKit data channel, tocado
+    // localmente a partir da mesma URL do arquivo (sem streaming de
+    // áudio de verdade, só um "sinal" com a URL). Nota: NÃO existe
+    // RoomEvent.DataChannel na API do livekit-client — o evento certo
+    // pra receber mensagens de data channel é DataReceived, abaixo.
+    r.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+      try {
+        const texto = new TextDecoder().decode(payload);
+        const msg = JSON.parse(texto) as { type?: string; url?: string };
+        if (msg.type === 'soundboard' && msg.url) {
+          const audio = new Audio(msg.url);
+          audio.volume = 0.8;
+          void audio.play().catch(() => { });
+        }
+      } catch {
+        // payload não era do soundboard — ignora
+      }
+    });
+
+    // ============================================================
+    // Reconexão — só log em dev, sem efeito colateral nenhum.
+    // ============================================================
+    r.on(RoomEvent.Reconnecting, () => {
+      if (import.meta.env.DEV) {
+        console.debug('[LiveKit] Reconnecting...');
+      }
+    });
+
+    r.on(RoomEvent.Reconnected, () => {
+      if (import.meta.env.DEV) {
+        console.debug('[LiveKit] Reconnected successfully');
+      }
+      refreshParticipantes();
+    });
+
     try {
-      await room.connect(url, token);
-      await room.localParticipant.setMicrophoneEnabled(!muted);
+      await r.connect(url, token);
+      await r.localParticipant.setMicrophoneEnabled(!muted);
+      setRoom(r);
       setConectado(true);
       refreshParticipantes();
     } catch (e) {
@@ -136,8 +225,10 @@ export function useVoiceChannel() {
       setCanalId(null);
     } finally {
       setConectando(false);
+      conectandoRef.current = false;
     }
-  }, [muted, refreshParticipantes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [muted, deafened, refreshParticipantes]);
 
   const toggleMuted = useCallback(() => {
     setMuted(prev => {
@@ -161,8 +252,64 @@ export function useVoiceChannel() {
     });
   }, [aplicarDeafenRemoto, muted]);
 
+  // ---- controles por participante (menu de contexto no avatar) --------
+
+  /** Ajusta o volume de UM participante só pra mim (0 a 2 = até 200%). */
+  const setParticipantVolume = useCallback((identity: string, volume: number) => {
+    const v = Math.max(0, Math.min(2, volume));
+    volumesRef.current[identity] = v;
+    const participant = roomRef.current?.remoteParticipants.get(identity);
+    participant?.audioTrackPublications.forEach(pub => {
+      if (pub.track && pub.kind === Track.Kind.Audio) {
+        (pub.track as RemoteAudioTrack).setVolume(v);
+      }
+    });
+    refreshParticipantes();
+  }, [refreshParticipantes]);
+
+  /** Silencia/dessilencia UM participante só pra mim, sem afetar deafen geral. */
+  const toggleLocalMute = useCallback((identity: string) => {
+    const jaMutado = mutadosRef.current.has(identity);
+    if (jaMutado) mutadosRef.current.delete(identity);
+    else mutadosRef.current.add(identity);
+
+    const participant = roomRef.current?.remoteParticipants.get(identity);
+    participant?.audioTrackPublications.forEach(pub => {
+      if (pub.kind === Track.Kind.Audio) pub.setEnabled(!deafened && !mutadosRef.current.has(identity));
+    });
+    refreshParticipantes();
+  }, [deafened, refreshParticipantes]);
+
+  /** Toca um som do soundboard pra mim e transmite pra todo mundo na
+   * chamada ouvir também (cada cliente toca a URL localmente — não é
+   * streaming de áudio de verdade, só um "sinal" via data channel). */
+  const tocarSomParaTodos = useCallback((url: string) => {
+    const r = roomRef.current;
+    const audio = new Audio(url);
+    audio.volume = 0.8;
+    void audio.play().catch(() => { });
+    if (r) {
+      const payload = new TextEncoder().encode(JSON.stringify({ type: 'soundboard', url }));
+      void r.localParticipant.publishData(payload, { reliable: true });
+    }
+  }, []);
+
   return {
-    canalId, nomeCanal, conectando, conectado, erro, muted, deafened, participantes,
-    connect, disconnect, toggleMuted, toggleDeafened,
+    room,
+    canalId,
+    nomeCanal,
+    conectando,
+    conectado,
+    erro,
+    muted,
+    deafened,
+    participantes,
+    connect,
+    disconnect,
+    toggleMuted,
+    toggleDeafened,
+    setParticipantVolume,
+    toggleLocalMute,
+    tocarSomParaTodos,
   };
 }

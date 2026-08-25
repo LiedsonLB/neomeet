@@ -13,17 +13,17 @@ const (
 // presença). Canais de texto nunca têm SalaID.
 // internal/models/canal.go
 type Canal struct {
-	ID             int64      `json:"id" db:"id"`
-	ComunidadeID   int64      `json:"comunidade_id" db:"comunidade_id"`
-	Nome           string     `json:"nome" db:"nome"`
-	Icone          *string    `json:"icone,omitempty" db:"icone"`
-	Tipo           string     `json:"tipo" db:"tipo"`
-	Posicao        int        `json:"posicao" db:"posicao"`
-	SalaID         *int64     `json:"sala_id,omitempty" db:"sala_id"`
-	CreatedAt      *time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      *time.Time `json:"updated_at" db:"updated_at"`
-	DeletedAt      *time.Time `json:"-" db:"deleted_at"`
-	
+	ID           int64      `json:"id" db:"id"`
+	ComunidadeID int64      `json:"comunidade_id" db:"comunidade_id"`
+	Nome         string     `json:"nome" db:"nome"`
+	Icone        *string    `json:"icone,omitempty" db:"icone"`
+	Tipo         string     `json:"tipo" db:"tipo"`
+	Posicao      int        `json:"posicao" db:"posicao"`
+	SalaID       *int64     `json:"sala_id,omitempty" db:"sala_id"`
+	CreatedAt    *time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at" db:"updated_at"`
+	DeletedAt    *time.Time `json:"-" db:"deleted_at"`
+
 	// Campos calculados (não persistidos)
 	ParticipantesOnline int                `json:"participantes_online,omitempty" db:"-"`
 	ParticipantesLista  []ParticipanteInfo `json:"participantes_lista,omitempty" db:"-"`
@@ -34,6 +34,7 @@ type ParticipanteInfo struct {
 	Identity   string `json:"identity"`
 	Nome       string `json:"nome"`
 	Foto       string `json:"foto,omitempty"`
+	Moldura    string `json:"moldura,omitempty"`
 	MicEnabled bool   `json:"micEnabled"`
 }
 
@@ -45,6 +46,7 @@ type CanalMensagem struct {
 	CanalID   int64      `json:"canal_id" db:"canal_id"`
 	UsuarioID int64      `json:"usuario_id" db:"usuario_id"`
 	Conteudo  string     `json:"conteudo" db:"conteudo"`
+	EditadoEm *time.Time `json:"editado_em" db:"editado_em"`
 	CreatedAt *time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at" db:"updated_at"`
 	DeletedAt *time.Time `json:"-" db:"deleted_at"`

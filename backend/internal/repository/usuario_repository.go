@@ -82,11 +82,11 @@ func (r *UsuarioRepository) buildWhere(p ListParams) (string, []any) {
 	return strings.Join(clauses, " AND "), args
 }
 
-const usuarioColumns = "id, nome, email, senha, foto, banner, moldura, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
+const usuarioColumns = "id, nome, email, senha, foto, banner, moldura, descricao, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
 
 func scanUsuario(row interface{ Scan(...any) error }) (*models.Usuario, error) {
 	u := &models.Usuario{}
-	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Banner, &u.Moldura, &u.Perfil,
+	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Banner, &u.Moldura, &u.Descricao, &u.Perfil,
 		&u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.AlunoID)
 	if err != nil {
 		return nil, err
@@ -479,6 +479,9 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	if u.Moldura != nil {
 		existing.Moldura = u.Moldura
 	}
+	if u.Descricao != nil {
+		existing.Descricao = u.Descricao
+	}
 	if u.Perfil > 0 {
 		existing.Perfil = u.Perfil
 	}
@@ -499,9 +502,9 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	}
 
 	_, err = r.db.Exec(
-		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, banner = ?, moldura = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
+		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, banner = ?, moldura = ?, descricao = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
 		 WHERE id = ?`,
-		existing.Nome, existing.Email, senha, existing.Foto, existing.Banner, existing.Moldura, existing.Perfil, existing.AlunoID, id,
+		existing.Nome, existing.Email, senha, existing.Foto, existing.Banner, existing.Moldura, existing.Descricao, existing.Perfil, existing.AlunoID, id,
 	)
 	if err != nil {
 		return nil, err

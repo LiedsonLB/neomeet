@@ -7,8 +7,10 @@ export interface Usuario {
   nome: string;
   email: string;
   foto: string | null;
-  banner: string | null;   // Adicionado
-  moldura: string | null;  // Adicionado
+  banner: string | null;
+  moldura: string | null;
+  /** Bio/descrição do usuário, mostrada no perfil (dele e dos outros). */
+  descricao: string | null;
   perfil: number;
   email_verified_at: string | null;
   created_at: string;
@@ -25,6 +27,7 @@ export interface LoginResponse {
   foto: string | null;
   banner: string | null;
   moldura: string | null;
+  descricao: string | null;
   perfil: number;
   email_verified_at: string | null;
   token: string;
@@ -75,12 +78,15 @@ export type SalaEventoTipo = '' | 'progresso' | 'entrou' | 'saiu';
 // COMUNIDADES (estilo Discord: servidor -> canais texto/voz)
 // ============================================================
 
-export type PapelComunidade = 'dono' | 'membro' | '';
+/** "" = não tem vínculo nenhum (usado em /comunidades/explorar). */
+export type PapelComunidade = 'dono' | 'membro' | 'pendente' | '';
+export type Visibilidade = 'publica' | 'privada';
 
 export interface Comunidade {
   id: number;
   nome: string;
   descricao: string | null;
+  visibilidade: Visibilidade;
   icone_url: string | null;
   banner_url: string | null;
   criado_por: number;
@@ -89,6 +95,17 @@ export interface Comunidade {
   /** Papel do usuário logado nessa comunidade — preenchido pelo backend. */
   papel?: PapelComunidade;
   total_membros?: number;
+}
+
+/** Uma solicitação de entrada pendente numa comunidade privada. */
+export interface ComunidadeMembro {
+  id: number;
+  comunidade_id: number;
+  usuario_id: number;
+  papel: PapelComunidade;
+  created_at: string | null;
+  usuario_nome?: string;
+  usuario_foto?: string | null;
 }
 
 export type CanalTipo = 'texto' | 'voz';
@@ -112,6 +129,7 @@ export interface ParticipanteInfo {
   identity: string;
   nome: string;
   foto?: string | null;
+  moldura?: string | null;
   micEnabled: boolean;
 }
 
@@ -120,8 +138,20 @@ export interface CanalMensagem {
   canal_id: number;
   usuario_id: number;
   conteudo: string;
+  editado_em: string | null;
   created_at: string | null;
   updated_at: string | null;
   usuario_nome: string;
   usuario_foto: string | null;
+}
+
+/** Um clipe do soundboard de uma comunidade (estilo Discord). */
+export interface ComunidadeSom {
+  id: number;
+  comunidade_id: number;
+  nome: string;
+  emoji: string | null;
+  arquivo_url: string;
+  criado_por: number;
+  created_at: string | null;
 }

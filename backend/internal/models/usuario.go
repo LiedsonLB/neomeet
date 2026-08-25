@@ -40,8 +40,12 @@ type Usuario struct {
 	// identificador (preset) do anel decorativo em volta do avatar, ver
 	// frontend/src/components/Avatar.tsx — nenhum dos dois faz parte do
 	// schema original do WebLEIA, adicionados em 0003_comunidades.up.sql.
-	Banner          *string    `json:"banner" db:"banner"`
-	Moldura         *string    `json:"moldura" db:"moldura"`
+	Banner  *string `json:"banner" db:"banner"`
+	Moldura *string `json:"moldura" db:"moldura"`
+	// Descricao é a "bio" que a pessoa pode escrever no perfil dela — ver
+	// EditarPerfilModal.tsx e PerfilUsuarioModal.tsx (ao ver o perfil de
+	// outra pessoa). Adicionado em 0005_visibilidade_som.up.sql.
+	Descricao       *string    `json:"descricao" db:"descricao"`
 	Perfil          int        `json:"perfil" db:"perfil"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at" db:"email_verified_at"`
 	CreatedAt       *time.Time `json:"created_at" db:"created_at"`

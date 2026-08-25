@@ -94,14 +94,15 @@ func (h *UsuarioHandler) Find(w http.ResponseWriter, r *http.Request) {
 }
 
 type usuarioPayload struct {
-	Nome    string  `json:"nome"`
-	Email   string  `json:"email"`
-	Senha   string  `json:"senha"`
-	Foto    *string `json:"foto"`
-	Banner  *string `json:"banner"`
-	Moldura *string `json:"moldura"`
-	Perfil  int     `json:"perfil"`
-	AlunoID *int64  `json:"aluno_id"`
+	Nome      string  `json:"nome"`
+	Email     string  `json:"email"`
+	Senha     string  `json:"senha"`
+	Foto      *string `json:"foto"`
+	Banner    *string `json:"banner"`
+	Moldura   *string `json:"moldura"`
+	Descricao *string `json:"descricao"`
+	Perfil    int     `json:"perfil"`
+	AlunoID   *int64  `json:"aluno_id"`
 }
 
 // nilIfEmpty evita gravar string vazia como se fosse um valor real — o
@@ -220,13 +221,14 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Prepara o usuário para atualização
 	u := &models.Usuario{
-		Nome:    payload.Nome,
-		Email:   payload.Email,
-		Foto:    nilIfEmpty(payload.Foto),
-		Banner:  nilIfEmpty(payload.Banner),
-		Moldura: nilIfEmpty(payload.Moldura),
-		Perfil:  payload.Perfil,
-		AlunoID: payload.AlunoID,
+		Nome:      payload.Nome,
+		Email:     payload.Email,
+		Foto:      nilIfEmpty(payload.Foto),
+		Banner:    nilIfEmpty(payload.Banner),
+		Moldura:   nilIfEmpty(payload.Moldura),
+		Descricao: nilIfEmpty(payload.Descricao),
+		Perfil:    payload.Perfil,
+		AlunoID:   payload.AlunoID,
 	}
 
 	// Atualiza no banco

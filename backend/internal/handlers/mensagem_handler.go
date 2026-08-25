@@ -22,7 +22,9 @@ func NewMensagemHandler(repo *repository.MensagemRepository, canalRepo *reposito
 }
 
 // canalDoMembro busca o canal do path e garante que a sessão atual é
-// membro da comunidade dona dele (dono ou membro comum) - APENAS PARA MENSAGENS
+// membro de fato da comunidade dona dele (dono ou membro comum — uma
+// solicitação "pendente" ainda NÃO dá acesso às mensagens de comunidades
+// privadas, só depois que o dono aprova).
 func (h *MensagemHandler) canalDoMembro(w http.ResponseWriter, r *http.Request) (*models.Canal, bool) {
 	canalID, err := idFromPath(r)
 	if err != nil {
@@ -43,15 +45,14 @@ func (h *MensagemHandler) canalDoMembro(w http.ResponseWriter, r *http.Request) 
 		httpx.Error(w, "Não autenticado.", 401)
 		return nil, false
 	}
-	
-	// PARA MENSAGENS: só permite se for membro
+
 	if !session.IsAdmin() {
 		papel, err := h.comunidadeRepo.Papel(canal.ComunidadeID, session.ID)
 		if err != nil {
 			httpx.Error(w, "Erro interno.", 500)
 			return nil, false
 		}
-		if papel == "" {
+		if papel == "" || papel == models.PapelPendente {
 			httpx.Error(w, "Você precisa ser membro para ver as mensagens.", 403)
 			return nil, false
 		}
@@ -106,4 +107,84 @@ func (h *MensagemHandler) Save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, 201, created)
+}
+
+// requireAutorOuDono garante que a sessão atual escreveu a mensagem, ou é
+// o dono da comunidade (moderação) / admin da plataforma.
+func (h *MensagemHandler) requireAutorOuDono(w http.ResponseWriter, r *http.Request, msg *models.CanalMensagem) bool {
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return false
+	}
+	if session.IsAdmin() || session.ID == msg.UsuarioID {
+		return true
+	}
+	canal, err := h.canalRepo.FindByID(msg.CanalID)
+	if err == nil {
+		papel, _ := h.comunidadeRepo.Papel(canal.ComunidadeID, session.ID)
+		if papel == models.PapelDono {
+			return true
+		}
+	}
+	httpx.Error(w, "Você só pode gerenciar suas próprias mensagens.", 403)
+	return false
+}
+
+// Update handles PUT /mensagens/{id} — só o autor pode editar (o dono da
+// comunidade pode apagar, mas não editar o texto de outra pessoa).
+func (h *MensagemHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	existing, err := h.repo.FindByID(id)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+	if !session.IsAdmin() && session.ID != existing.UsuarioID {
+		httpx.Error(w, "Você só pode editar suas próprias mensagens.", 403)
+		return
+	}
+	var payload mensagemPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		httpx.Error(w, "Requisição inválida.", 422)
+		return
+	}
+	updated, err := h.repo.Update(id, payload.Conteudo)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	httpx.JSON(w, 200, updated)
+}
+
+// Delete handles DELETE /mensagens/{id} — autor, dono da comunidade ou
+// admin da plataforma.
+func (h *MensagemHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	existing, err := h.repo.FindByID(id)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	if !h.requireAutorOuDono(w, r, existing) {
+		return
+	}
+	if err := h.repo.SoftDelete(id); err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	httpx.Success(w, "Mensagem excluída.", 200)
 }

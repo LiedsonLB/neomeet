@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { X, ImagePlus, Loader2 } from 'lucide-react';
+import { X, ImagePlus, Loader2, Globe, Lock } from 'lucide-react';
 import { comunidadeApi, uploadApi } from '../api/client';
 import type { StoredSession } from '../api/client';
-import type { Comunidade } from '../api/types';
+import type { Comunidade, Visibilidade } from '../api/types';
 
 interface Props {
   session: StoredSession;
@@ -13,6 +13,7 @@ interface Props {
 export default function CriarComunidadeModal({ session, onClose, onCreated }: Props) {
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [visibilidade, setVisibilidade] = useState<Visibilidade>('publica');
   const [iconeFile, setIconeFile] = useState<File | null>(null);
   const [iconePreview, setIconePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,7 @@ export default function CriarComunidadeModal({ session, onClose, onCreated }: Pr
       const created = await comunidadeApi.create(session, {
         nome: nome.trim(),
         descricao: descricao.trim() || undefined,
+        visibilidade,
         icone_url,
       });
       onCreated(created);
@@ -92,6 +94,28 @@ export default function CriarComunidadeModal({ session, onClose, onCreated }: Pr
               placeholder="Sobre o que é essa comunidade?"
               maxLength={500}
             />
+          </div>
+
+          <div>
+            <label className="field-label">Visibilidade</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibilidade('publica')}
+                className={`flex flex-1 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${visibilidade === 'publica' ? 'border-primary-container bg-primary-container/15' : 'border-outline-variant hover:bg-surface-container-high'}`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-on-surface"><Globe size={14} /> Pública</span>
+                <span className="text-[11px] text-on-surface-variant">Qualquer um encontra e entra direto</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibilidade('privada')}
+                className={`flex flex-1 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${visibilidade === 'privada' ? 'border-primary-container bg-primary-container/15' : 'border-outline-variant hover:bg-surface-container-high'}`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-on-surface"><Lock size={14} /> Privada</span>
+                <span className="text-[11px] text-on-surface-variant">Só entra quem você aprovar</span>
+              </button>
+            </div>
           </div>
 
           {erro && <p className="text-xs text-error">{erro}</p>}

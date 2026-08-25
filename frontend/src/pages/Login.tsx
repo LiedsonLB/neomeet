@@ -166,6 +166,26 @@ export default function Login() {
       <p className="my-3 text-center text-xs text-on-surface-variant/60">
         Resenha © 2026
       </p>
+      <p className="mb-3 text-center text-xs text-on-surface-variant/60">
+        Desenvolvido por{' '}
+        <a
+          href="https://liedsonbarros.vercel.app"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="font-medium text-primary hover:underline"
+        >
+          Liedson Barros
+        </a>
+        {' · '}
+        <a
+          href="https://github.com/LiedsonLB"
+          target="_blank"
+          rel="noreferrer noopener"
+          className="font-medium text-primary hover:underline"
+        >
+          GitHub
+        </a>
+      </p>
     </AuthShell>
   );
 }

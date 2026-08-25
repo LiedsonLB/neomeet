@@ -13,7 +13,19 @@ const NAV_ITEMS = [
   { to: '/comunidades', label: 'Comunidades', icon: Compass },
 ];
 
-export default function AppShell({ children }: { children: ReactNode }) {
+interface AppShellProps {
+  children: ReactNode;
+  /** Quando true, o conteúdo ocupa 100% da altura/largura disponível, sem
+   * o max-width/padding padrão — usado pela tela de uma comunidade
+   * (ComunidadeRoom.tsx), que já tem seu próprio layout interno (sidebar
+   * de canais + chat/voz) e precisa de espaço de borda a borda. Isso
+   * também resolve o "troca de aside" — a comunidade passa a viver DENTRO
+   * do rail principal do AppShell, em vez de ser uma tela isolada com um
+   * rail próprio por cima. */
+  fullBleed?: boolean;
+}
+
+export default function AppShell({ children, fullBleed }: AppShellProps) {
   const { session, usuario, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,20 +119,24 @@ export default function AppShell({ children }: { children: ReactNode }) {
               comunidades.map(c => {
                 const ativo = c.id === comunidadeIdAtual;
                 const icone = resolveFotoUrl(c.icone_url);
+                const pendente = c.papel === 'pendente';
                 return (
                   <button
                     key={c.id}
-                    title={c.nome}
+                    title={pendente ? `${c.nome} (aguardando aprovação)` : c.nome}
                     onClick={() => navigate(`/comunidades/${c.id}`)}
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:rounded-xl ${ativo
+                    className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:rounded-xl ${ativo
                       ? 'rounded-xl bg-surface-container-high text-on-primary-container shadow-glow'
                       : 'bg-surface-container-high text-on-surface-variant hover:bg-primary-container/60'
-                      }`}
+                      } ${pendente ? 'opacity-50' : ''}`}
                   >
                     {icone ? (
                       <img src={icone} alt={c.nome} className="h-full w-full object-cover" />
                     ) : (
                       c.nome.slice(0, 2).toUpperCase()
+                    )}
+                    {pendente && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-surface-container-lowest bg-amber" />
                     )}
                   </button>
                 );
@@ -176,10 +192,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ---- Conteúdo principal ---- */}
-      <main className="min-h-screen pb-24 pt-16 md:ml-20 md:pb-8 md:pt-0">
-        <div className="mx-auto flex w-full max-w-container-max flex-col gap-margin-desktop p-gutter">
-          {children}
-        </div>
+      <main className={fullBleed ? 'h-screen pb-16 pt-16 md:ml-20 md:h-screen md:pb-0 md:pt-0' : 'min-h-screen pb-24 pt-16 md:ml-20 md:pb-8 md:pt-0'}>
+        {fullBleed ? (
+          <div className="h-full">{children}</div>
+        ) : (
+          <div className="mx-auto flex w-full max-w-container-max flex-col gap-margin-desktop p-gutter">
+            {children}
+          </div>
+        )}
       </main>
 
       {/* ---- Bottom nav (mobile) ---- */}

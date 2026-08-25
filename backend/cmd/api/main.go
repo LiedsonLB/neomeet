@@ -88,9 +88,10 @@ func main() {
 		LiveKitPublicURL: cfg.LiveKitPublicURL,
 
 		// ---- COMUNIDADES (canais estilo Discord) -------------------------
-		ComunidadeRepo: repository.NewComunidadeRepository(db),
-		CanalRepo:      repository.NewCanalRepository(db),
-		MensagemRepo:   repository.NewMensagemRepository(db),
+		ComunidadeRepo:    repository.NewComunidadeRepository(db),
+		CanalRepo:         repository.NewCanalRepository(db),
+		MensagemRepo:      repository.NewMensagemRepository(db),
+		ComunidadeSomRepo: repository.NewComunidadeSomRepository(db),
 
 		// ---- EXPORTAÇÃO (RabbitMQ) ---------------------------------------
 		Rabbit: rabbitMQ,

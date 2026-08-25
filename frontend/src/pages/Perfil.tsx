@@ -7,6 +7,7 @@ import { comunidadeApi, resolveFotoUrl, ApiError } from '../api/client';
 import type { Comunidade, Usuario } from '../api/types';
 import AppShell from '../layout/AppShell';
 import EditarPerfilModal from '../components/EditarPerfilModal';
+import Avatar from '../components/Avatar';
 
 export default function Perfil() {
   const { session, usuario, signOut, refreshUser } = useAuth();
@@ -34,9 +35,7 @@ export default function Perfil() {
 
   if (!usuario) return null;
 
-  const foto = resolveFotoUrl(usuario.foto);
   const banner = resolveFotoUrl(usuario.banner);
-  const initials = usuario.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
 
   const handlePerfilAtualizado = (usuarioAtualizado: Usuario) => {
     refreshUser(usuarioAtualizado);
@@ -60,27 +59,11 @@ export default function Perfil() {
 
         <div className="relative -mt-16 px-6 pb-8 md:-mt-20 md:px-10">
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            {/* Avatar */}
+            {/* Avatar (usa o mesmo componente/presets de moldura do resto do app) */}
             <div className="relative inline-block">
-              <div className="relative z-10 h-32 w-32 overflow-hidden rounded-full border-4 border-surface-container bg-surface-container-highest md:h-40 md:w-40">
-                {foto ? (
-                  <img src={foto} alt={usuario.nome} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-on-surface">{initials}</div>
-                )}
+              <div className="relative z-10 rounded-full border-4 border-surface-container bg-surface-container-highest">
+                <Avatar nome={usuario.nome} foto={usuario.foto} moldura={usuario.moldura} size={128} />
               </div>
-              {/* Moldura - anel decorativo */}
-              {usuario.moldura && usuario.moldura !== 'default' && (
-                <div className={`absolute inset-0 rounded-full border-8 pointer-events-none ${usuario.moldura === 'gold' ? 'border-yellow-500' :
-                    usuario.moldura === 'silver' ? 'border-gray-400' :
-                      usuario.moldura === 'diamond' ? 'border-cyan-400' :
-                        usuario.moldura === 'ruby' ? 'border-red-500' :
-                          usuario.moldura === 'emerald' ? 'border-emerald-500' :
-                            usuario.moldura === 'sapphire' ? 'border-blue-500' :
-                              usuario.moldura === 'rainbow' ? 'border-4 border-transparent bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500' :
-                                'border-secondary'
-                  }`} />
-              )}
               <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-surface-bright bg-surface-container px-2 py-1 shadow-lg backdrop-blur-sm md:bottom-4 md:right-4">
                 <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-tertiary shadow-[0_0_8px_#00dce5]" />
                 <span className="text-label-sm text-on-surface">Online</span>
@@ -115,6 +98,9 @@ export default function Perfil() {
               )}
             </div>
             <p className="mb-4 text-label-md text-primary">{usuario.email}</p>
+            {usuario.descricao && (
+              <p className="mb-4 max-w-xl whitespace-pre-wrap break-words text-label-md text-on-surface-variant">{usuario.descricao}</p>
+            )}
             <div className="mt-6 flex flex-wrap gap-2">
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-surface-container-highest px-3 py-1.5">
                 <Video size={16} className="text-secondary" />
@@ -181,6 +167,17 @@ export default function Perfil() {
           </div>
         )}
       </section>
+
+      <p className="pb-2 text-center text-[11px] text-on-surface-variant/60">
+        Resenha · Desenvolvido por{' '}
+        <a href="https://liedsonbarros.vercel.app" target="_blank" rel="noreferrer noopener" className="font-medium text-primary hover:underline">
+          Liedson Barros
+        </a>
+        {' · '}
+        <a href="https://github.com/LiedsonLB" target="_blank" rel="noreferrer noopener" className="font-medium text-primary hover:underline">
+          GitHub
+        </a>
+      </p>
 
       {/* Modal de edição */}
       {modalEditarAberto && (

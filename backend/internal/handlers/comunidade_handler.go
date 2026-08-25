@@ -3,12 +3,20 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/liedsonlb/resenha-patch/internal/httpx"
 	"github.com/liedsonlb/resenha-patch/internal/middleware"
 	"github.com/liedsonlb/resenha-patch/internal/models"
 	"github.com/liedsonlb/resenha-patch/internal/repository"
 )
+
+// int64PathParam lê um segmento nomeado da rota (ex.: "usuarioId" em
+// /comunidades/{id}/membros/{usuarioId}/aprovar) como int64 — idFromPath
+// (em usuario_handler.go) só cobre o segmento fixo "id".
+func int64PathParam(r *http.Request, name string) (int64, error) {
+	return strconv.ParseInt(r.PathValue(name), 10, 64)
+}
 
 type ComunidadeHandler struct {
 	repo *repository.ComunidadeRepository
@@ -27,42 +35,50 @@ func (h *ComunidadeHandler) enrich(c *models.Comunidade, sessionID int64) {
 	c.TotalMembros = total
 }
 
-// All handles GET /comunidades — lista TODAS as comunidades (públicas)
-// para o dashboard, incluindo as que o usuário não é membro.
+// All handles GET /comunidades — "Minhas comunidades": onde o usuário é
+// dono, membro ou tem solicitação pendente.
 func (h *ComunidadeHandler) All(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	
-	// Pega o usuário da sessão
 	session := middleware.UserFromContext(r)
 	if session == nil {
 		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
-	
-	// Busca TODAS as comunidades (públicas)
-	comunidades, err := h.repo.FindAll(ctx)
+	list, err := h.repo.ListByUsuario(session.ID)
 	if err != nil {
-		httpx.Error(w, "Erro ao carregar comunidades: "+err.Error(), 500)
+		httpx.Error(w, "Erro interno.", 500)
 		return
 	}
-	
-	// Para cada comunidade, verifica se o usuário é membro e qual o papel
-	for _, comunidade := range comunidades {
-		// Verifica se o usuário é membro
-		membro, err := h.repo.FindMembro(ctx, comunidade.ID, session.ID)
-		if err == nil && membro != nil {
-			comunidade.Papel = membro.Papel
-		} else {
-			// Se não for membro, define como vazio (acesso público)
-			comunidade.Papel = ""
-		}
-		
-		// Conta membros
-		total, _ := h.repo.CountMembros(ctx, comunidade.ID)
-		comunidade.TotalMembros = total
+	if list == nil {
+		list = []*models.Comunidade{}
 	}
-	
-	httpx.JSON(w, 200, comunidades)
+	for _, c := range list {
+		h.enrich(c, session.ID)
+	}
+	httpx.JSON(w, 200, list)
+}
+
+// Explorar handles GET /comunidades/explorar — comunidades públicas das
+// quais o usuário ainda não faz parte ("Explorar comunidades").
+func (h *ComunidadeHandler) Explorar(w http.ResponseWriter, r *http.Request) {
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+	list, err := h.repo.ListExplorar(session.ID)
+	if err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	if list == nil {
+		list = []*models.Comunidade{}
+	}
+	for _, c := range list {
+		c.Papel = ""
+		total, _ := h.repo.TotalMembros(c.ID)
+		c.TotalMembros = total
+	}
+	httpx.JSON(w, 200, list)
 }
 
 func (h *ComunidadeHandler) Find(w http.ResponseWriter, r *http.Request) {
@@ -84,14 +100,16 @@ func (h *ComunidadeHandler) Find(w http.ResponseWriter, r *http.Request) {
 }
 
 type comunidadePayload struct {
-	Nome      string  `json:"nome"`
-	Descricao *string `json:"descricao"`
-	IconeURL  *string `json:"icone_url"`
-	BannerURL *string `json:"banner_url"`
+	Nome         string  `json:"nome"`
+	Descricao    *string `json:"descricao"`
+	Visibilidade *string `json:"visibilidade"` // "publica" | "privada"
+	IconeURL     *string `json:"icone_url"`
+	BannerURL    *string `json:"banner_url"`
 }
 
 // Save handles POST /comunidades — qualquer usuário autenticado pode criar
-// a sua própria comunidade (vira "dono" automaticamente).
+// a sua própria comunidade (vira "dono" automaticamente), escolhendo se
+// ela nasce pública ou privada.
 func (h *ComunidadeHandler) Save(w http.ResponseWriter, r *http.Request) {
 	var payload comunidadePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -103,7 +121,11 @@ func (h *ComunidadeHandler) Save(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
-	created, err := h.repo.Create(payload.Nome, payload.Descricao, payload.IconeURL, payload.BannerURL, session.ID)
+	visibilidade := models.VisibilidadePublica
+	if payload.Visibilidade != nil && *payload.Visibilidade == models.VisibilidadePrivada {
+		visibilidade = models.VisibilidadePrivada
+	}
+	created, err := h.repo.Create(payload.Nome, payload.Descricao, payload.IconeURL, payload.BannerURL, visibilidade, session.ID)
 	if err != nil {
 		writeAppErr(w, err)
 		return
@@ -113,7 +135,7 @@ func (h *ComunidadeHandler) Save(w http.ResponseWriter, r *http.Request) {
 }
 
 // requireDono garante que a sessão atual é o dono da comunidade — usado
-// por Update/Delete/criação e remoção de canal.
+// por Update/Delete/criação e remoção de canal/aprovação de pendentes.
 func (h *ComunidadeHandler) requireDono(w http.ResponseWriter, r *http.Request, comunidadeID int64) bool {
 	session := middleware.UserFromContext(r)
 	if session == nil {
@@ -135,7 +157,8 @@ func (h *ComunidadeHandler) requireDono(w http.ResponseWriter, r *http.Request, 
 	return true
 }
 
-// Update handles PUT /comunidades/{id} — editar nome/descrição/ícone/banner.
+// Update handles PUT /comunidades/{id} — editar nome/descrição/
+// visibilidade/ícone/banner.
 func (h *ComunidadeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {
@@ -155,7 +178,8 @@ func (h *ComunidadeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		nome = &payload.Nome
 	}
 	updated, err := h.repo.Update(id, repository.ComunidadeUpdate{
-		Nome: nome, Descricao: payload.Descricao, IconeURL: payload.IconeURL, BannerURL: payload.BannerURL,
+		Nome: nome, Descricao: payload.Descricao, Visibilidade: payload.Visibilidade,
+		IconeURL: payload.IconeURL, BannerURL: payload.BannerURL,
 	})
 	if err != nil {
 		writeAppErr(w, err)
@@ -167,9 +191,7 @@ func (h *ComunidadeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /comunidades/{id} — só o dono (ou um admin) pode
-// apagar. Os canais e vínculos de membro somem em cascata (FK ON DELETE
-// CASCADE); as `sala` ligadas aos canais de voz continuam existindo, só
-// perdem o vínculo (ON DELETE SET NULL), sem quebrar nada.
+// apagar.
 func (h *ComunidadeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {
@@ -186,16 +208,13 @@ func (h *ComunidadeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	httpx.Success(w, "Comunidade excluída.", 200)
 }
 
-// Entrar handles POST /comunidades/{id}/entrar — qualquer usuário
-// autenticado pode entrar numa comunidade existente (link direto/convite).
+// Entrar handles POST /comunidades/{id}/entrar — se a comunidade for
+// pública, entra na hora; se for privada, cria uma solicitação pendente
+// que o dono precisa aprovar (ver Pendentes/Aprovar/Rejeitar abaixo).
 func (h *ComunidadeHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
 	if err != nil {
 		httpx.Error(w, "Id inválido.", 422)
-		return
-	}
-	if _, err := h.repo.FindByID(id); err != nil {
-		writeAppErr(w, err)
 		return
 	}
 	session := middleware.UserFromContext(r)
@@ -203,9 +222,81 @@ func (h *ComunidadeHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
-	if err := h.repo.AddMembro(id, session.ID); err != nil {
+	papel, err := h.repo.SolicitarEntrada(id, session.ID)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	msg := "Você entrou na comunidade."
+	if papel == models.PapelPendente {
+		msg = "Solicitação enviada! Assim que o dono aprovar, você terá acesso."
+	}
+	httpx.JSON(w, 200, map[string]any{"message": msg, "papel": papel})
+}
+
+// Pendentes handles GET /comunidades/{id}/pendentes — só o dono vê quem
+// está esperando aprovação pra entrar numa comunidade privada.
+func (h *ComunidadeHandler) Pendentes(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	if !h.requireDono(w, r, id) {
+		return
+	}
+	list, err := h.repo.ListPendentes(id)
+	if err != nil {
 		httpx.Error(w, "Erro interno.", 500)
 		return
 	}
-	httpx.Success(w, "Você entrou na comunidade.", 200)
+	if list == nil {
+		list = []*models.ComunidadeMembro{}
+	}
+	httpx.JSON(w, 200, list)
+}
+
+// Aprovar handles POST /comunidades/{id}/membros/{usuarioId}/aprovar
+func (h *ComunidadeHandler) Aprovar(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	if !h.requireDono(w, r, id) {
+		return
+	}
+	usuarioID, err := int64PathParam(r, "usuarioId")
+	if err != nil {
+		httpx.Error(w, "Id de usuário inválido.", 422)
+		return
+	}
+	if err := h.repo.AddMembro(id, usuarioID); err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	httpx.Success(w, "Solicitação aprovada.", 200)
+}
+
+// Rejeitar handles DELETE /comunidades/{id}/membros/{usuarioId} — recusa
+// uma solicitação pendente OU remove um membro já aceito (dono decide).
+func (h *ComunidadeHandler) Rejeitar(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	if !h.requireDono(w, r, id) {
+		return
+	}
+	usuarioID, err := int64PathParam(r, "usuarioId")
+	if err != nil {
+		httpx.Error(w, "Id de usuário inválido.", 422)
+		return
+	}
+	if err := h.repo.RemoverMembro(id, usuarioID); err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	httpx.Success(w, "Removido.", 200)
 }

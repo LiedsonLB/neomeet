@@ -36,9 +36,10 @@ type Deps struct {
 	LiveKitPublicURL string
 
 	// ---- Comunidades (estilo Discord: canais de texto/voz) -------------
-	ComunidadeRepo *repository.ComunidadeRepository
-	CanalRepo      *repository.CanalRepository
-	MensagemRepo   *repository.MensagemRepository
+	ComunidadeRepo    *repository.ComunidadeRepository
+	CanalRepo         *repository.CanalRepository
+	MensagemRepo      *repository.MensagemRepository
+	ComunidadeSomRepo *repository.ComunidadeSomRepository
 
 	// ---- Verificação de e-mail (tokens auto-validáveis) ----------------
 	VerificationSecret string
@@ -65,7 +66,7 @@ func New(d Deps) http.Handler {
 		d.AppName,
 		d.TokenKey,
 		d.AppKey,
-		d.VerificationSecret, // NOVO PARÂMETRO
+		d.VerificationSecret,
 	)
 	mux.HandleFunc("POST /acesso/login", login.Run)
 	mux.HandleFunc("POST /acesso/check_token", login.CheckToken)
@@ -85,14 +86,12 @@ func New(d Deps) http.Handler {
 	mux.Handle("DELETE /usuarios/{id}", auth(http.HandlerFunc(usuario.Delete)))
 	mux.Handle("POST /usuarios/restore/{id}", auth(http.HandlerFunc(usuario.Restore)))
 
-	// ---- uploads (fotos/banners de usuário, ícones/banners de comunidade)
-	// ANTES essas rotas não existiam aqui — o UploadHandler existia no
-	// código mas nunca era registrado, então nenhuma imagem enviada pelo
-	// formulário era de fato salva/persistida. Corrigido junto com a rota
-	// estática abaixo, que serve os arquivos gravados em d.UploadDir.
+	// ---- uploads (fotos/banners de usuário, ícones/banners de comunidade,
+	// sons do soundboard) --------------------------------------------------
 	upload := handlers.NewUploadHandler(d.UploadDir)
 	mux.Handle("POST /upload/foto", auth(http.HandlerFunc(upload.Foto)))
 	mux.Handle("POST /upload/producao-imagem", auth(http.HandlerFunc(upload.ProducaoImagem)))
+	mux.Handle("POST /upload/som", auth(http.HandlerFunc(upload.Som)))
 	mux.Handle("GET /uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(d.UploadDir))))
 
 	// ---- salas (LiveKit) -----------------------------------------------
@@ -109,14 +108,18 @@ func New(d Deps) http.Handler {
 	// ---- comunidades (servidores estilo Discord) ------------------------
 	comunidade := handlers.NewComunidadeHandler(d.ComunidadeRepo)
 	mux.Handle("GET /comunidades", auth(http.HandlerFunc(comunidade.All)))
+	mux.Handle("GET /comunidades/explorar", auth(http.HandlerFunc(comunidade.Explorar)))
 	mux.Handle("GET /comunidades/{id}", auth(http.HandlerFunc(comunidade.Find)))
 	mux.Handle("POST /comunidades", auth(http.HandlerFunc(comunidade.Save)))
 	mux.Handle("PUT /comunidades/{id}", auth(http.HandlerFunc(comunidade.Update)))
 	mux.Handle("DELETE /comunidades/{id}", auth(http.HandlerFunc(comunidade.Delete)))
 	mux.Handle("POST /comunidades/{id}/entrar", auth(http.HandlerFunc(comunidade.Entrar)))
+	mux.Handle("GET /comunidades/{id}/pendentes", auth(http.HandlerFunc(comunidade.Pendentes)))
+	mux.Handle("POST /comunidades/{id}/membros/{usuarioId}/aprovar", auth(http.HandlerFunc(comunidade.Aprovar)))
+	mux.Handle("DELETE /comunidades/{id}/membros/{usuarioId}", auth(http.HandlerFunc(comunidade.Rejeitar)))
 
 	// ---- canais (texto/voz) dentro de uma comunidade --------------------
-	canal := handlers.NewCanalHandler(d.CanalRepo, d.ComunidadeRepo, d.SalaRepo, d.RealtimeHub)
+	canal := handlers.NewCanalHandler(d.CanalRepo, d.ComunidadeRepo, d.SalaRepo, d.RealtimeHub, d.LiveKitAPIKey, d.LiveKitAPISecret, d.LiveKitURL)
 	mux.Handle("GET /comunidades/{id}/canais", auth(http.HandlerFunc(canal.All)))
 	mux.Handle("POST /comunidades/{id}/canais", auth(http.HandlerFunc(canal.Save)))
 	mux.Handle("PATCH /canais/{id}", auth(http.HandlerFunc(canal.Update)))
@@ -126,6 +129,14 @@ func New(d Deps) http.Handler {
 	mensagem := handlers.NewMensagemHandler(d.MensagemRepo, d.CanalRepo, d.ComunidadeRepo)
 	mux.Handle("GET /canais/{id}/mensagens", auth(http.HandlerFunc(mensagem.All)))
 	mux.Handle("POST /canais/{id}/mensagens", auth(http.HandlerFunc(mensagem.Save)))
+	mux.Handle("PUT /mensagens/{id}", auth(http.HandlerFunc(mensagem.Update)))
+	mux.Handle("DELETE /mensagens/{id}", auth(http.HandlerFunc(mensagem.Delete)))
+
+	// ---- soundboard de uma comunidade -------------------------------------
+	som := handlers.NewComunidadeSomHandler(d.ComunidadeSomRepo, d.ComunidadeRepo)
+	mux.Handle("GET /comunidades/{id}/sons", auth(http.HandlerFunc(som.All)))
+	mux.Handle("POST /comunidades/{id}/sons", auth(http.HandlerFunc(som.Save)))
+	mux.Handle("DELETE /sons/{id}", auth(http.HandlerFunc(som.Delete)))
 
 	return withCORS(mux)
 }

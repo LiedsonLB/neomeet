@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/liedsonlb/resenha-patch/internal/httpx"
+	"github.com/liedsonlb/resenha-patch/internal/livekit"
 	"github.com/liedsonlb/resenha-patch/internal/middleware"
 	"github.com/liedsonlb/resenha-patch/internal/models"
 	"github.com/liedsonlb/resenha-patch/internal/realtime"
@@ -13,17 +14,24 @@ import (
 )
 
 type CanalHandler struct {
-	repo           *repository.CanalRepository
-	comunidadeRepo *repository.ComunidadeRepository
-	salaRepo       *repository.SalaRepository
-	hub            *realtime.Hub
+	repo             *repository.CanalRepository
+	comunidadeRepo   *repository.ComunidadeRepository
+	salaRepo         *repository.SalaRepository
+	hub              *realtime.Hub
+	liveKitAPIKey    string
+	liveKitAPISecret string
+	liveKitURL       string
 }
 
-func NewCanalHandler(repo *repository.CanalRepository, comunidadeRepo *repository.ComunidadeRepository, salaRepo *repository.SalaRepository, hub *realtime.Hub) *CanalHandler {
-	return &CanalHandler{repo: repo, comunidadeRepo: comunidadeRepo, salaRepo: salaRepo, hub: hub}
+func NewCanalHandler(repo *repository.CanalRepository, comunidadeRepo *repository.ComunidadeRepository, salaRepo *repository.SalaRepository, hub *realtime.Hub, liveKitAPIKey, liveKitAPISecret, liveKitURL string) *CanalHandler {
+	return &CanalHandler{
+		repo: repo, comunidadeRepo: comunidadeRepo, salaRepo: salaRepo, hub: hub,
+		liveKitAPIKey: liveKitAPIKey, liveKitAPISecret: liveKitAPISecret, liveKitURL: liveKitURL,
+	}
 }
 
-// requireMembro garante que a sessão atual pertence à comunidade
+// requireMembro garante que a sessão atual é de fato membro da comunidade
+// (dono ou membro comum) — uma solicitação "pendente" ainda não conta.
 func (h *CanalHandler) requireMembro(w http.ResponseWriter, r *http.Request, comunidadeID int64) bool {
 	session := middleware.UserFromContext(r)
 	if session == nil {
@@ -38,7 +46,7 @@ func (h *CanalHandler) requireMembro(w http.ResponseWriter, r *http.Request, com
 		httpx.Error(w, "Erro interno.", 500)
 		return false
 	}
-	if papel == "" {
+	if papel == "" || papel == models.PapelPendente {
 		httpx.Error(w, "Você não faz parte dessa comunidade.", 403)
 		return false
 	}
@@ -66,23 +74,21 @@ func (h *CanalHandler) requireDono(w http.ResponseWriter, r *http.Request, comun
 	return true
 }
 
-// All handles GET /comunidades/{id}/canais
-// Retorna participantes online para todos os canais de voz
+// All handles GET /comunidades/{id}/canais — só quem é membro de verdade
+// (não pendente) vê os canais. Para canais de voz, devolve quem está
+// realmente conectado agora (consulta o LiveKit direto — ver
+// internal/livekit/roomservice.go), então dá pra ver quem está numa
+// chamada sem precisar entrar nela.
 func (h *CanalHandler) All(w http.ResponseWriter, r *http.Request) {
 	comunidadeID, err := idFromPath(r)
 	if err != nil {
 		httpx.Error(w, "Id inválido.", 422)
 		return
 	}
-
-	// Verifica se o usuário está autenticado
-	session := middleware.UserFromContext(r)
-	if session == nil {
-		httpx.Error(w, "Não autenticado.", 401)
+	if !h.requireMembro(w, r, comunidadeID) {
 		return
 	}
 
-	// Busca os canais da comunidade
 	list, err := h.repo.ListByComunidade(comunidadeID)
 	if err != nil {
 		httpx.Error(w, "Erro interno.", 500)
@@ -92,14 +98,22 @@ func (h *CanalHandler) All(w http.ResponseWriter, r *http.Request) {
 		list = []*models.Canal{}
 	}
 
-	// Preenche participantes online para TODOS os canais de voz
 	for _, c := range list {
-		if c.Tipo == models.CanalTipoVoz && c.SalaID != nil {
-			// Pega participantes detalhados do hub
-			participantes := h.hub.ParticipantesDetalhados(*c.SalaID)
-			c.ParticipantesOnline = len(participantes)
-			c.ParticipantesLista = participantes
+		if c.Tipo != models.CanalTipoVoz || c.SalaID == nil {
+			continue
 		}
+		sala, err := h.salaRepo.FindByID(*c.SalaID)
+		if err != nil {
+			continue
+		}
+		participantes, err := livekit.ListParticipants(h.liveKitURL, h.liveKitAPIKey, h.liveKitAPISecret, sala.Codigo)
+		if err != nil {
+			// LiveKit fora do ar ou sala vazia — não derruba a listagem de
+			// canais por causa disso, só mostra 0 participantes.
+			continue
+		}
+		c.ParticipantesOnline = len(participantes)
+		c.ParticipantesLista = participantes
 	}
 
 	httpx.JSON(w, 200, list)

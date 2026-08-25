@@ -28,10 +28,15 @@ func NewUploadHandler(uploadDir string) *UploadHandler {
 	return &UploadHandler{uploadDir: uploadDir}
 }
 
-const maxUploadSize = 5 << 20 // 5MB
+const maxUploadSize = 5 << 20    // 5MB
+const maxSomUploadSize = 2 << 20 // 2MB — sons do soundboard são clipes curtos
 
 var allowedImageExt = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true, ".jfif": true,
+}
+
+var allowedAudioExt = map[string]bool{
+	".mp3": true, ".wav": true, ".ogg": true, ".m4a": true,
 }
 
 // pastasPermitidas restringe onde o cliente pode gravar, evitando path
@@ -203,5 +208,65 @@ func (h *UploadHandler) ProducaoImagem(w http.ResponseWriter, r *http.Request) {
 
 	httpx.JSON(w, 201, map[string]any{
 		"url": "/uploads/producoes/" + name,
+	})
+}
+
+// Som handles POST /upload/som (multipart/form-data, campo "arquivo"):
+// salva um clipe de áudio do soundboard de uma comunidade em
+// <UploadDir>/sons/<token>.<ext> e devolve `{url}` — usado por
+// POST /comunidades/{id}/sons (ver comunidade_som_handler.go).
+func (h *UploadHandler) Som(w http.ResponseWriter, r *http.Request) {
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxSomUploadSize+1<<20)
+	if err := r.ParseMultipartForm(maxSomUploadSize); err != nil {
+		httpx.Error(w, "Arquivo inválido ou muito grande (máximo 2MB).", 422)
+		return
+	}
+
+	file, header, err := r.FormFile("arquivo")
+	if err != nil {
+		httpx.Error(w, "Envie o arquivo no campo \"arquivo\".", 422)
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowedAudioExt[ext] {
+		httpx.Error(w, "Formato não suportado. Use mp3, wav, ogg ou m4a.", 422)
+		return
+	}
+
+	folder := filepath.Join(h.uploadDir, "sons")
+	if err := os.MkdirAll(folder, 0755); err != nil {
+		httpx.Error(w, "Erro interno ao preparar armazenamento.", 500)
+		return
+	}
+
+	name, err := randomFileName()
+	if err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	name += ext
+
+	dst, err := os.Create(filepath.Join(folder, name))
+	if err != nil {
+		httpx.Error(w, "Erro interno ao salvar o arquivo.", 500)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		httpx.Error(w, "Erro interno ao salvar o arquivo.", 500)
+		return
+	}
+
+	httpx.JSON(w, 201, map[string]any{
+		"url": "/uploads/sons/" + name,
 	})
 }

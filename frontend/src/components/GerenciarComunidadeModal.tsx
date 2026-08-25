@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
-import { X, ImagePlus, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X, ImagePlus, Loader2, Trash2, AlertTriangle, Globe, Lock, Check, UserPlus } from 'lucide-react';
 import { comunidadeApi, uploadApi, resolveFotoUrl } from '../api/client';
 import type { StoredSession } from '../api/client';
-import type { Comunidade } from '../api/types';
+import type { Comunidade, ComunidadeMembro, Visibilidade } from '../api/types';
+import Avatar from './Avatar';
 
 interface Props {
   session: StoredSession;
@@ -15,6 +16,7 @@ interface Props {
 export default function GerenciarComunidadeModal({ session, comunidade, onClose, onUpdated, onDeleted }: Props) {
   const [nome, setNome] = useState(comunidade.nome);
   const [descricao, setDescricao] = useState(comunidade.descricao ?? '');
+  const [visibilidade, setVisibilidade] = useState<Visibilidade>(comunidade.visibilidade ?? 'publica');
   const [iconePreview, setIconePreview] = useState<string | null>(resolveFotoUrl(comunidade.icone_url));
   const [bannerPreview, setBannerPreview] = useState<string | null>(resolveFotoUrl(comunidade.banner_url));
   const [iconeFile, setIconeFile] = useState<File | null>(null);
@@ -25,6 +27,44 @@ export default function GerenciarComunidadeModal({ session, comunidade, onClose,
   const [erro, setErro] = useState<string | null>(null);
   const iconeRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
+
+  // ---- solicitações pendentes (só comunidades privadas) ----------------
+  const [pendentes, setPendentes] = useState<ComunidadeMembro[]>([]);
+  const [carregandoPendentes, setCarregandoPendentes] = useState(false);
+  const [processando, setProcessando] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (comunidade.visibilidade !== 'privada') return;
+    setCarregandoPendentes(true);
+    comunidadeApi.pendentes(session, comunidade.id)
+      .then(setPendentes)
+      .catch(() => setPendentes([]))
+      .finally(() => setCarregandoPendentes(false));
+  }, [session, comunidade.id, comunidade.visibilidade]);
+
+  async function aprovar(usuarioId: number) {
+    setProcessando(usuarioId);
+    try {
+      await comunidadeApi.aprovar(session, comunidade.id, usuarioId);
+      setPendentes(prev => prev.filter(p => p.usuario_id !== usuarioId));
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao aprovar.');
+    } finally {
+      setProcessando(null);
+    }
+  }
+
+  async function rejeitar(usuarioId: number) {
+    setProcessando(usuarioId);
+    try {
+      await comunidadeApi.rejeitar(session, comunidade.id, usuarioId);
+      setPendentes(prev => prev.filter(p => p.usuario_id !== usuarioId));
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao recusar.');
+    } finally {
+      setProcessando(null);
+    }
+  }
 
   function handleIcone(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -61,6 +101,7 @@ export default function GerenciarComunidadeModal({ session, comunidade, onClose,
       const updated = await comunidadeApi.update(session, comunidade.id, {
         nome: nome.trim(),
         descricao: descricao.trim() || null,
+        visibilidade,
         icone_url,
         banner_url,
       });
@@ -86,7 +127,7 @@ export default function GerenciarComunidadeModal({ session, comunidade, onClose,
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass-panel w-full max-w-md rounded-2xl p-6" onClick={e => e.stopPropagation()}>
+      <div className="glass-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl p-6" onClick={e => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold text-on-surface">Editar comunidade</h2>
           <button className="text-on-surface-variant hover:text-on-surface" onClick={onClose}><X size={18} /></button>
@@ -140,12 +181,71 @@ export default function GerenciarComunidadeModal({ session, comunidade, onClose,
             />
           </div>
 
+          <div>
+            <label className="field-label">Visibilidade</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibilidade('publica')}
+                className={`flex flex-1 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${visibilidade === 'publica' ? 'border-primary-container bg-primary-container/15' : 'border-outline-variant hover:bg-surface-container-high'}`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-on-surface"><Globe size={14} /> Pública</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibilidade('privada')}
+                className={`flex flex-1 flex-col items-start gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors ${visibilidade === 'privada' ? 'border-primary-container bg-primary-container/15' : 'border-outline-variant hover:bg-surface-container-high'}`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-on-surface"><Lock size={14} /> Privada</span>
+              </button>
+            </div>
+          </div>
+
           {erro && <p className="text-xs text-error">{erro}</p>}
 
           <button type="submit" className="btn-primary py-3" disabled={loading}>
             {loading ? <Loader2 size={16} className="spin-icon" /> : 'Salvar alterações'}
           </button>
         </form>
+
+        {/* Solicitações pendentes — só comunidades privadas */}
+        {comunidade.visibilidade === 'privada' && (
+          <div className="mt-5 border-t border-outline-variant/50 pt-5">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant">
+              <UserPlus size={13} /> Solicitações de entrada
+            </h3>
+            {carregandoPendentes ? (
+              <div className="flex justify-center py-3"><Loader2 size={16} className="spin-icon text-outline" /></div>
+            ) : pendentes.length === 0 ? (
+              <p className="text-xs text-on-surface-variant">Nenhuma solicitação no momento.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {pendentes.map(p => (
+                  <div key={p.id} className="flex items-center gap-2 rounded-lg bg-surface-container-high px-2.5 py-2">
+                    <Avatar nome={p.usuario_nome ?? '?'} foto={p.usuario_foto} size={28} />
+                    <span className="flex-1 truncate text-xs font-medium text-on-surface">{p.usuario_nome}</span>
+                    <button
+                      onClick={() => aprovar(p.usuario_id)}
+                      disabled={processando === p.usuario_id}
+                      title="Aprovar"
+                      className="rounded-md bg-tertiary/15 p-1.5 text-tertiary hover:bg-tertiary/25"
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      onClick={() => rejeitar(p.usuario_id)}
+                      disabled={processando === p.usuario_id}
+                      title="Recusar"
+                      className="rounded-md bg-error/15 p-1.5 text-error hover:bg-error/25"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mt-5 border-t border-outline-variant/50 pt-5">
           {!confirmarExclusao ? (

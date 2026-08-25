@@ -1,4 +1,4 @@
-// Dashboard.tsx - Versão corrigida com Comunidades
+// Dashboard.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, ArrowRight, Compass, Sparkles } from 'lucide-react';
@@ -6,8 +6,6 @@ import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, resolveFotoUrl } from '../api/client';
 import type { Comunidade } from '../api/types';
 import AppShell from '../layout/AppShell';
-
-const CATEGORIES = ['Todos', 'Jogos', 'Tech', 'Educação'];
 
 function primeiroNome(nome?: string) {
   return (nome ?? '').split(' ')[0] || 'visitante';
@@ -17,56 +15,39 @@ export default function Dashboard() {
   const { session, usuario } = useAuth();
   const navigate = useNavigate();
 
-  const [comunidades, setComunidades] = useState<Comunidade[]>([]);
+  const [minhasComunidades, setMinhasComunidades] = useState<Comunidade[]>([]);
+  const [explorar, setExplorar] = useState<Comunidade[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
-  const [categoria, setCategoria] = useState('Todos');
 
   useEffect(() => {
-    if (!session) {
-      setLoading(false);
-      return;
-    }
-    
+    if (!session) { setLoading(false); return; }
     let mounted = true;
-    
-    comunidadeApi
-      .list(session)
-      .then(list => {
-        if (mounted) {
-          setComunidades(Array.isArray(list) ? list : []);
-          setError(null);
-        }
+
+    Promise.all([comunidadeApi.list(session), comunidadeApi.explorar(session)])
+      .then(([minhas, publicas]) => {
+        if (!mounted) return;
+        // Filtra apenas comunidades onde o usuário é dono
+        setMinhasComunidades(minhas.filter(c => c.papel === 'dono'));
+        // Explorar mostra todas as comunidades públicas que o usuário não é dono
+        setExplorar(publicas.filter(c => c.papel !== 'dono'));
+        setError(null);
       })
       .catch(err => {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : 'Erro ao carregar comunidades.');
-          setComunidades([]);
-        }
+        if (mounted) setError(err instanceof Error ? err.message : 'Erro ao carregar comunidades.');
       })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-      
+      .finally(() => { if (mounted) setLoading(false); });
+
     return () => { mounted = false; };
   }, [session]);
 
-  // Comunidades onde o usuário é dono
-  const minhasComunidades = useMemo(() => {
-    const list = Array.isArray(comunidades) ? comunidades : [];
-    return list.filter(c => c.papel === 'dono');
-  }, [comunidades]);
-
-  // Comunidades para descobrir (onde não é dono)
   const descobrir = useMemo(() => {
-    const list = Array.isArray(comunidades) ? comunidades : [];
-    return list
-      .filter(c => c.papel !== 'dono')
-      .filter(c => !busca.trim() || c.nome.toLowerCase().includes(busca.trim().toLowerCase()));
-  }, [comunidades, categoria, busca]);
+    if (!busca.trim()) return explorar;
+    const termo = busca.trim().toLowerCase();
+    return explorar.filter(c => c.nome.toLowerCase().includes(termo));
+  }, [explorar, busca]);
 
-  // Se não houver sessão, mostrar mensagem apropriada
   if (!session) {
     return (
       <AppShell>
@@ -112,11 +93,7 @@ export default function Dashboard() {
           <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
             <Users size={20} className="text-primary" /> Suas comunidades
           </h2>
-          <button 
-            type="button" 
-            onClick={() => navigate('/comunidades')} 
-            className="text-label-md text-tertiary transition-colors hover:text-tertiary-fixed-dim"
-          >
+          <button type="button" onClick={() => navigate('/comunidades')} className="text-label-md text-tertiary transition-colors hover:text-tertiary-fixed-dim">
             Ver todas
           </button>
         </div>
@@ -127,80 +104,93 @@ export default function Dashboard() {
           <div className="glass-card flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-variant py-10 text-center">
             <Sparkles size={22} className="text-outline" />
             <p className="text-sm text-on-surface-variant">Você ainda não criou nenhuma comunidade.</p>
-            <button 
-              type="button" 
-              onClick={() => navigate('/comunidades?nova=1')} 
-              className="btn-primary mt-2 px-5 py-2 text-sm"
-            >
+            <button type="button" onClick={() => navigate('/comunidades?nova=1')} className="btn-primary mt-2 px-5 py-2 text-sm">
               Criar minha primeira comunidade
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {minhasComunidades.map(comunidade => (
-              <div 
-                key={comunidade.id} 
-                className="glass-card group relative flex flex-col gap-stack-md overflow-hidden rounded-xl p-4 transition-all duration-300 hover:shadow-[0px_4px_20px_rgba(46,91,255,0.15)]"
+              <div
+                key={comunidade.id}
+                onClick={() => navigate(`/comunidades/${comunidade.id}`)}
+                className="glass-card group flex cursor-pointer flex-col overflow-hidden rounded-2xl transition-colors hover:bg-surface-container-high"
               >
-                <div className="absolute -left-1 top-1/2 h-12 w-2 -translate-y-1/2 rounded-r-full bg-tertiary opacity-80 shadow-[0_0_10px_#00dce5]" />
-                <div className="flex items-center gap-4 pl-2">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-surface-variant bg-surface-container-highest text-lg font-bold text-primary overflow-hidden">
+                {/* ============================================================
+                    FIX: Banner da comunidade (igual ao Comunidades.tsx)
+                    ============================================================ */}
+                {comunidade.banner_url ? (
+                  <div className="relative h-24 w-full overflow-hidden">
+                    <img
+                      src={resolveFotoUrl(comunidade.banner_url) ?? undefined}
+                      alt={`Banner de ${comunidade.nome}`}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 to-transparent" />
+                  </div>
+                ) : (
+                  <div className="h-16 w-full bg-gradient-to-br from-primary-container/60 to-secondary-container/60" />
+                )}
+
+                {/* ============================================================
+                    FIX: Ícone da comunidade com moldura (igual ao Comunidades.tsx)
+                    ============================================================ */}
+                <div className="flex flex-col gap-2 p-4">
+                  <div className="flex items-center gap-3">
                     {comunidade.icone_url ? (
-                      <img 
-                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined} 
-                        alt={comunidade.nome} 
-                        className="h-full w-full object-cover" 
+                      <img
+                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined}
+                        alt={comunidade.nome}
+                        className="-mt-8 h-12 w-12 rounded-2xl border-4 border-surface-container-lowest object-cover shadow"
                       />
                     ) : (
-                      comunidade.nome.slice(0, 2).toUpperCase()
+                      <div className="-mt-8 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-surface-container-lowest bg-gradient-to-br from-primary-container to-secondary-container text-sm font-bold text-on-primary-container shadow">
+                        {comunidade.nome.slice(0, 2).toUpperCase()}
+                      </div>
                     )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-body-lg font-bold leading-tight text-on-surface">{comunidade.nome}</h3>
-                    <div className="mt-1 flex items-center gap-1">
-                      <span className="h-2 w-2 rounded-full bg-tertiary" />
-                      <span className="text-label-sm text-tertiary">{comunidade.total_membros ?? 1} membros</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-bold text-on-surface">{comunidade.nome}</h3>
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-on-surface-variant">
+                        <Users size={12} /> {comunidade.total_membros ?? 1} membro{(comunidade.total_membros ?? 1) !== 1 ? 's' : ''}
+                        <span className="ml-1 flex items-center gap-0.5 text-[10px] text-outline">
+                          {comunidade.visibilidade === 'privada' ? '🔒 Privada' : '🌐 Pública'}
+                        </span>
+                        <span className="ml-1 rounded bg-primary-container/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary">DONO</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Descrição */}
+                  {comunidade.descricao && (
+                    <p className="line-clamp-2 text-xs text-on-surface-variant">{comunidade.descricao}</p>
+                  )}
                 </div>
-                {comunidade.descricao && (
-                  <p className="line-clamp-2 text-label-md text-on-surface-variant">{comunidade.descricao}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => navigate(`/comunidades/${comunidade.id}`)}
-                  className="mt-auto flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high py-2.5 text-label-md text-on-surface transition-all hover:border-transparent hover:bg-primary-container hover:text-on-primary-container"
-                >
-                  Gerenciar comunidade <ArrowRight size={16} />
-                </button>
+
+                {/* Botão Gerenciar */}
+                <div className="px-4 pb-4 mt-auto">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/comunidades/${comunidade.id}`);
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high py-2.5 text-label-md text-on-surface transition-all hover:border-transparent hover:bg-primary-container hover:text-on-primary-container"
+                  >
+                    Gerenciar comunidade <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* ---- Descobrir comunidades ---- */}
+      {/* ---- Descobrir comunidades (públicas, das quais eu não faço parte) ---- */}
       <section className="flex flex-col gap-stack-md">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
             <Compass size={20} className="text-primary" /> Descobrir comunidades
           </h2>
-          <div className="flex flex-wrap items-center gap-2">
-            {CATEGORIES.map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCategoria(c)}
-                className={
-                  categoria === c
-                    ? 'rounded-full bg-primary px-4 py-2 text-label-md text-on-primary shadow-[0_0_10px_rgba(184,195,255,0.2)] transition-colors'
-                    : 'rounded-full border border-outline-variant bg-surface-container px-4 py-2 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface'
-                }
-              >
-                {c}
-              </button>
-            ))}
-          </div>
         </div>
 
         {loading ? (
@@ -218,32 +208,69 @@ export default function Dashboard() {
               <div
                 key={comunidade.id}
                 onClick={() => navigate(`/comunidades/${comunidade.id}`)}
-                className="glass-card group flex cursor-pointer flex-col gap-4 rounded-2xl border border-outline-variant p-5 transition-colors hover:border-outline"
+                className="glass-card group flex cursor-pointer flex-col overflow-hidden rounded-2xl transition-colors hover:bg-surface-container-high"
               >
-                <div className="relative h-32 w-full overflow-hidden rounded-lg bg-surface-container-high">
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-container/40 via-secondary-container/30 to-tertiary-container/40 text-2xl font-bold text-on-surface opacity-80 transition-transform duration-500 group-hover:scale-105">
+                {/* ============================================================
+                    FIX: Banner da comunidade (igual ao Comunidades.tsx)
+                    ============================================================ */}
+                {comunidade.banner_url ? (
+                  <div className="relative h-24 w-full overflow-hidden">
+                    <img
+                      src={resolveFotoUrl(comunidade.banner_url) ?? undefined}
+                      alt={`Banner de ${comunidade.nome}`}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest/80 to-transparent" />
+                  </div>
+                ) : (
+                  <div className="h-16 w-full bg-gradient-to-br from-primary-container/60 to-secondary-container/60" />
+                )}
+
+                {/* ============================================================
+                    FIX: Ícone da comunidade (igual ao Comunidades.tsx)
+                    ============================================================ */}
+                <div className="flex flex-col gap-2 p-4">
+                  <div className="flex items-center gap-3">
                     {comunidade.icone_url ? (
-                      <img 
-                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined} 
-                        alt={comunidade.nome} 
-                        className="h-full w-full object-cover" 
+                      <img
+                        src={resolveFotoUrl(comunidade.icone_url) ?? undefined}
+                        alt={comunidade.nome}
+                        className="-mt-8 h-12 w-12 rounded-2xl border-4 border-surface-container-lowest object-cover shadow"
                       />
                     ) : (
-                      comunidade.nome.slice(0, 2).toUpperCase()
+                      <div className="-mt-8 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-surface-container-lowest bg-gradient-to-br from-primary-container to-secondary-container text-sm font-bold text-on-primary-container shadow">
+                        {comunidade.nome.slice(0, 2).toUpperCase()}
+                      </div>
                     )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-bold text-on-surface">{comunidade.nome}</h3>
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-on-surface-variant">
+                        <Users size={12} /> {comunidade.total_membros ?? 1} membro{(comunidade.total_membros ?? 1) !== 1 ? 's' : ''}
+                        <span className="ml-1 flex items-center gap-0.5 text-[10px] text-outline">
+                          {comunidade.visibilidade === 'privada' ? '🔒 Privada' : '🌐 Pública'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Descrição */}
+                  {comunidade.descricao && (
+                    <p className="line-clamp-2 text-xs text-on-surface-variant">{comunidade.descricao}</p>
+                  )}
                 </div>
-                <div>
-                  <h3 className="text-body-lg font-bold text-on-surface">{comunidade.nome}</h3>
-                  <p className="mt-1 line-clamp-2 text-label-md text-on-surface-variant">
-                    {comunidade.descricao ?? 'Sem descrição.'}
-                  </p>
-                </div>
-                <div className="mt-auto flex items-center justify-between text-on-surface-variant">
-                  <span className="flex items-center gap-1 text-label-sm">
-                    <Users size={14} /> {comunidade.total_membros ?? 1} membros
-                  </span>
-                  <ArrowRight size={18} className="transition-all group-hover:translate-x-1 group-hover:text-primary" />
+
+                {/* Botão Entrar */}
+                <div className="px-4 pb-4 mt-auto">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/comunidades/${comunidade.id}`);
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-high py-2.5 text-label-md text-on-surface transition-all hover:border-transparent hover:bg-primary-container hover:text-on-primary-container"
+                  >
+                    Ver comunidade <ArrowRight size={16} />
+                  </button>
                 </div>
               </div>
             ))}
