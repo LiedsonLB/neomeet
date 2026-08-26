@@ -63,62 +63,62 @@ services:
       - resenha-network
 
   # ---- API (Go) ---------------------------------------------------------
-  # api:
-  #   image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
-  #   container_name: resenha-api
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./backend/.env
-  #   environment:
-  #     DB_HOST: mysql
-  #     RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
-  #     LIVEKIT_URL: ws://livekit:7880
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   # ── Volume de uploads persistente: as imagens sobrevivem aos deploys ──
-  #   volumes:
-  #     - uploads_data:/app/uploads
-  #   networks:
-  #     - resenha-network
+  api:
+    image: ${DOCKERHUB_USERNAME}/resenha-api:${IMAGE_TAG:-latest}
+    container_name: resenha-api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: mysql
+      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
+      LIVEKIT_URL: ws://livekit:7880
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    # ── Volume de uploads persistente: as imagens sobrevivem aos deploys ──
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - resenha-network
 
   # ---- Worker de e-mail (Go) --------------------------------------------
-  # worker-email:
-  #   image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
-  #   container_name: resenha-worker-email
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./backend/.env
-  #   environment:
-  #     RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - resenha-network
+  worker-email:
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-worker-email:${IMAGE_TAG:-latest}
+    container_name: resenha-worker-email
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - resenha-network
 
   # ---- Frontend (React + Nginx) ------------------------------------------
-  # frontend:
-  #   image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
-  #   container_name: resenha-frontend
-  #   restart: unless-stopped
-  #   environment:
-  #     - BACKEND_HOST=api
-  #     - LIVEKIT_HOST=livekit
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   depends_on:
-  #     - api
-  #   volumes:
-  #     - ./certbot/www:/var/www/certbot
-  #     - ./certbot/conf:/etc/letsencrypt
-  #     # Nginx serve uploads diretamente do volume (sem passar pela API)
-  #     - uploads_data:/app/uploads:ro
-  #   networks:
-  #     - resenha-network
+  frontend:
+    image: ${DOCKERHUB_USERNAME:-local}/resenha-frontend:${IMAGE_TAG:-latest}
+    container_name: resenha-frontend
+    restart: unless-stopped
+    environment:
+      - BACKEND_HOST=api
+      - LIVEKIT_HOST=livekit
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+      # Nginx serve uploads diretamente do volume (sem passar pela API)
+      - uploads_data:/app/uploads:ro
+    networks:
+      - resenha-network
 
 volumes:
   mysql_data:
