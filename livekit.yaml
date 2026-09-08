@@ -3,8 +3,12 @@ rtc:
   tcp_port: 7881
   udp_port: 7882
   use_external_ip: true
-  port_range_start: 50000
-  port_range_end: 50009
+
+# URL pública — clientes do browser precisam conectar via hostname/IP público,
+# não via "livekit" (que só existe dentro da rede Docker).
+# Ajuste para o IP ou domínio do seu servidor.
+# Se usar HTTPS, mude ws:// para wss://
+# signal_relay_url: ws://resenha.mooo.com/livekit
 
 keys:
   devkey: 7xK9mP2qR4sT8vW3yZ5cF6hJ1nL4oB8aD0
