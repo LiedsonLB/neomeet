@@ -1,5 +1,5 @@
 // ComunidadeRoom.tsx
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, PhoneOff, X,
@@ -122,7 +122,7 @@ export default function ComunidadeRoom() {
   // duas vezes antes do `entrandoNoCanal` (state, assíncrono) conseguir
   // desabilitar o botão — era isso que abria duas conexões concorrentes
   // (às vezes pra canais diferentes) e derrubava uma na outra.
-  const entrandoNoCanalRef = useRef<number | null>(null);
+  // const entrandoNoCanalRef = useRef<number | null>(null);
 
   async function abrirCanalVoz(canal: Canal) {
     if (!ehMembro) {

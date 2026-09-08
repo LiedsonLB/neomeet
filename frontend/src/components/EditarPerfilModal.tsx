@@ -88,16 +88,16 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
   };
 
   // ============================================================
-  // FIX: Buscar a moldura selecionada corretamente
+  // FIX: Removida variável não utilizada 'molduraSelecionada'
   // ============================================================
-  const molduraSelecionada = MOLDURAS.find(m => m.id === formData.moldura);
 
   // ============================================================
-  // FIX: Função para obter o estilo da moldura
+  // FIX: Função para obter o estilo da moldura com tipo correto
   // ============================================================
   const getMolduraStyle = (molduraId: string) => {
     const found = MOLDURAS.find(m => m.id === molduraId);
-    return found?.gradient;
+    // Retorna undefined em vez de null para evitar erro de tipo
+    return found?.gradient || undefined;
   };
 
   return (
@@ -162,11 +162,13 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
                   style={{
                     width: '96px',
                     height: '96px',
-                    // A moldura é o background com padding
+                    // FIX: Usar undefined em vez de null e espalhar condicionalmente
                     ...(getMolduraStyle(formData.moldura) ? {
                       padding: '4px',
                       background: getMolduraStyle(formData.moldura),
-                    } : {})
+                    } : {
+                      // Sem moldura - apenas background normal
+                    })
                   }}
                 >
                   {/* Conteúdo do avatar (imagem ou iniciais) */}

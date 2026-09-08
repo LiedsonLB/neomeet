@@ -20,7 +20,6 @@ interface VoiceRoomEmbedProps {
 }
 
 function ParticipantMenu({
-  identity,
   nome,
   isLocal,
   volume,
@@ -117,6 +116,7 @@ function ParticipantsBar({
     } catch {
       return {};
     }
+    return {}; // Return empty object if no metadata
   };
 
   const allParticipants = useMemo(() => {
@@ -180,8 +180,9 @@ function ParticipantsBar({
         <div className="flex flex-wrap gap-2 px-4 pb-3">
           {allParticipants.map(({ participant, isLocal }) => {
             const meta = getParticipantMeta(participant);
+            // FIX: Use optional chaining and provide fallbacks
             const nome =
-              meta.nome || participant.name || participant.identity || 'Usuário';
+              meta?.nome || participant.name || participant.identity || 'Usuário';
             const speaking = isSpeaking(participant);
             const micEnabled =
               participant instanceof RemoteParticipant
@@ -201,8 +202,9 @@ function ParticipantsBar({
               >
                 <Avatar
                   nome={nome}
-                  foto={meta.foto}
-                  moldura={meta.moldura}
+                  // FIX: Use optional chaining with fallback
+                  foto={meta?.foto}
+                  moldura={meta?.moldura}
                   size={24}
                 />
                 <span className="max-w-[100px] truncate text-xs text-on-surface">
@@ -275,20 +277,11 @@ export default function VoiceRoomEmbed({
   return (
     <div className="flex h-full w-full flex-col bg-[#0A0C14]">
       <div className="relative min-h-0 flex-1">
-        {/*
-          ⚠️ IMPORTANTE: connect={true} é o padrão e o comportamento correto!
-          
-          connect={false} faz o LiveKitRoom desconectar ativamente a room 
-          que você passou - isso é um comportamento interno do componente.
-          
-          Como token e serverUrl são undefined, o componente não tenta
-          reconectar, apenas usa a room já conectada pelo useVoiceChannel.
-        */}
         <LiveKitRoom
           room={room}
           serverUrl={undefined}
           token={undefined}
-          connect={true}  // ← CORREÇÃO: true (padrão) em vez de false
+          connect={true}
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
