@@ -61,6 +61,7 @@ jobs:
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
             VITE_APP_KEY=${{ secrets.VITE_APP_KEY }}
+            VITE_LIVEKIT_URL=wss://resenha.mooo.com/livekit
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/resenha-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/resenha-frontend:${{ github.sha }}
@@ -116,7 +117,8 @@ jobs:
 
           LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}
           LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
-          LIVEKIT_URL=ws://livekit:7880
+          LIVEKIT_URL=wss://resenha.mooo.com/livekit
+          LIVEKIT_PUBLIC_URL=wss://resenha.mooo.com/livekit
 
           UPLOAD_DIR=/app/uploads
           EOF

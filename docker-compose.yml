@@ -56,9 +56,12 @@ services:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+      - "50000-50009:50000-50009/udp"  # Portas RTC para mídia
     command: --config /etc/livekit.yaml
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
+    environment:
+      - LIVEKIT_KEYS=devkey:7xK9mP2qR4sT8vW3yZ5cF6hJ1nL4oB8aD0
     networks:
       - resenha-network
 
@@ -72,7 +75,8 @@ services:
     environment:
       DB_HOST: mysql
       RABBIT_URL: amqp://${RABBITMQ_DEFAULT_USER:-resenha}:${RABBITMQ_DEFAULT_PASS:-resenha_rabbit}@rabbitmq:5672/
-      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_URL: wss://resenha.mooo.com/livekit
+      LIVEKIT_PUBLIC_URL: wss://resenha.mooo.com/livekit
     depends_on:
       mysql:
         condition: service_healthy
@@ -112,6 +116,7 @@ services:
       - "443:443"
     depends_on:
       - api
+      - livekit
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
