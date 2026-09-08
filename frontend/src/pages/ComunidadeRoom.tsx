@@ -347,7 +347,7 @@ export default function ComunidadeRoom() {
 
                     {/* Quem está na call — visível mesmo sem eu ter entrado */}
                     {totalParticipantes > 0 && (
-                      <div className={`ml-6 mt-0.5 flex flex-col gap-1 border-l border-outline-variant/40 pl-3 ${!conectadoAqui ? 'opacity-70' : ''}`}>
+                      <div className={`mt-0.5 flex flex-col gap-1 border-l border-outline-variant/40 pl-3 ${!conectadoAqui ? 'opacity-70' : ''}`}>
                         {(mostrarTodos ? participantes : participantes.slice(0, 3)).map(p => (
                           <button
                             key={p.identity}

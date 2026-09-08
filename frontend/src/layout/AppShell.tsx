@@ -126,7 +126,7 @@ export default function AppShell({ children, fullBleed }: AppShellProps) {
                     title={pendente ? `${c.nome} (aguardando aprovação)` : c.nome}
                     onClick={() => navigate(`/comunidades/${c.id}`)}
                     className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:rounded-xl ${ativo
-                      ? 'rounded-xl bg-surface-container-high text-on-primary-container shadow-glow'
+                      ? 'bg-surface-container-high text-on-primary-container shadow-glow'
                       : 'bg-surface-container-high text-on-surface-variant hover:bg-primary-container/60'
                       } ${pendente ? 'opacity-50' : ''}`}
                   >
