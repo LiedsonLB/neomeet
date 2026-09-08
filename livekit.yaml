@@ -6,10 +6,6 @@ rtc:
   port_range_start: 50000
   port_range_end: 50009
 
-# URL pública que o cliente vai usar para se conectar via WebSocket
-# O frontend usa wss://resenha.mooo.com/livekit
-signal_relay_url: wss://resenha.mooo.com/livekit
-
 keys:
   devkey: 7xK9mP2qR4sT8vW3yZ5cF6hJ1nL4oB8aD0
 
