@@ -61,7 +61,7 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
     environment:
-      - LIVEKIT_KEYS=devkey:7xK9mP2qR4sT8vW3yZ5cF6hJ1nL4oB8aD0
+      - LIVEKIT_KEYS=devkey: 7xK9mP2qR4sT8vW3yZ5cF6hJ1nL4oB8aD0  # ATENÇÃO: espaço após devkey:
     networks:
       - resenha-network
 
