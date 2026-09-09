@@ -54,6 +54,20 @@ type ComunidadeMembro struct {
 
 func (ComunidadeMembro) TableName() string { return "comunidade_membro" }
 
+// MembroComPresenca é um membro efetivo (dono ou membro — nunca pendente)
+// de uma comunidade, já com indicador de presença (ver
+// UsuarioRepository.TouchAcesso / ComunidadeRepository.ListMembros).
+// Usado só pela aba "Membros" (MembrosModal.tsx no frontend), não tem
+// tabela própria.
+type MembroComPresenca struct {
+	UsuarioID int64   `json:"usuario_id" db:"-"`
+	Nome      string  `json:"nome" db:"-"`
+	Foto      *string `json:"foto" db:"-"`
+	Moldura   *string `json:"moldura" db:"-"`
+	Papel     string  `json:"papel" db:"-"`
+	Online    bool    `json:"online" db:"-"`
+}
+
 // ComunidadeSom mapeia `comunidade_som` — um clipe do soundboard de uma
 // comunidade (estilo Discord: sons curtos que qualquer membro pode tocar
 // durante uma chamada de voz, ouvido por todo mundo na sala).

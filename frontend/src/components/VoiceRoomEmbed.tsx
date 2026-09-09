@@ -1,270 +1,43 @@
 // components/VoiceRoomEmbed.tsx
-import { useMemo, useState } from 'react';
-import {
-  LiveKitRoom,
-  VideoConference,
-  useParticipants,
-  useLocalParticipant,
-} from '@livekit/components-react';
+//
+// Host da <LiveKitRoom> (usa a MESMA Room já conectada pelo
+// VoiceCallContext — não abre uma segunda conexão) e ponto de entrada
+// da grade de vídeo customizada (ver VoiceConferenceCustom.tsx), que
+// substitui o <VideoConference/> pronto do @livekit/components-react
+// por causa dos requisitos específicos daqui: várias opções de layout,
+// menu de contexto (botão direito) com mutar/gravar áudio/ver perfil,
+// e tela cheia pro compartilhamento de tela.
 import '@livekit/components-styles';
-import { ChevronUp, ChevronDown, MicOff, Users, Volume1, Volume2, VolumeX, UserCircle2 } from 'lucide-react';
+import { LiveKitRoom } from '@livekit/components-react';
 import type { Room } from 'livekit-client';
-import { RemoteParticipant, LocalParticipant } from 'livekit-client';
-import Avatar from './Avatar';
+import VoiceConferenceCustom from './VoiceConferenceCustom';
 
 interface VoiceRoomEmbedProps {
   room: Room;
+  cameraLigada: boolean;
+  compartilhandoTela: boolean;
+  onToggleCamera: () => void;
+  onToggleScreenShare: () => void;
+  gravando: Record<string, boolean>;
   onParticipantVolumeChange: (identity: string, volume: number) => void;
   onToggleLocalMute: (identity: string) => void;
   onViewProfile: (usuarioId: number) => void;
+  onIniciarGravacaoAudio: (identity: string) => void;
+  onPararEBaixarGravacaoAudio: (identity: string, nomeArquivo: string) => void;
 }
 
-function ParticipantMenu({
-  nome,
-  isLocal,
-  volume,
-  mutadoParaMim,
-  onVolumeChange,
-  onToggleMute,
-  onViewProfile,
-  onClose,
-}: {
-  identity: string;
-  nome: string;
-  isLocal: boolean;
-  volume: number;
-  mutadoParaMim: boolean;
-  onVolumeChange: (v: number) => void;
-  onToggleMute: () => void;
-  onViewProfile: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70]" onClick={onClose}>
-      <div
-        className="glass-panel absolute w-56 rounded-xl p-3 shadow-2xl"
-        style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <p className="mb-2 truncate px-1 text-xs font-bold text-on-surface">{nome}</p>
-        {!isLocal && (
-          <>
-            <button
-              onClick={onToggleMute}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high"
-            >
-              <VolumeX size={15} className={mutadoParaMim ? 'text-error' : ''} />
-              {mutadoParaMim ? 'Reativar áudio' : 'Silenciar para mim'}
-            </button>
-            <div className="px-2 py-2">
-              <div className="mb-1.5 flex items-center gap-2 text-xs text-on-surface-variant">
-                {volume === 0 ? <VolumeX size={13} /> : volume < 1 ? <Volume1 size={13} /> : <Volume2 size={13} />}
-                Volume ({Math.round(volume * 100)}%)
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={2}
-                step={0.05}
-                value={volume}
-                onChange={e => onVolumeChange(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-            </div>
-          </>
-        )}
-        <button
-          onClick={onViewProfile}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high"
-        >
-          <UserCircle2 size={15} /> Ver perfil
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ParticipantsBar({
-  onParticipantVolumeChange,
-  onToggleLocalMute,
-  onViewProfile,
-}: Omit<VoiceRoomEmbedProps, 'room'>) {
-  const participants = useParticipants();
-  const localParticipant = useLocalParticipant();
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [menuAberto, setMenuAberto] = useState<{
-    identity: string;
-    nome: string;
-    isLocal: boolean;
-    usuarioId: number;
-  } | null>(null);
-  const [volumes, setVolumes] = useState<Record<string, number>>({});
-  const [mutados, setMutados] = useState<Set<string>>(new Set());
-
-  const isSpeaking = (participant: RemoteParticipant | LocalParticipant) =>
-    'isSpeaking' in participant ? participant.isSpeaking : false;
-
-  const getParticipantMeta = (participant: RemoteParticipant | LocalParticipant) => {
-    try {
-      if (participant.metadata) {
-        return JSON.parse(participant.metadata) as {
-          nome?: string;
-          foto?: string;
-          moldura?: string;
-        };
-      }
-    } catch {
-      return {};
-    }
-    return {}; // Return empty object if no metadata
-  };
-
-  const allParticipants = useMemo(() => {
-    const local = localParticipant.localParticipant;
-    const remoteList = participants;
-
-    const participantMap = new Map<
-      string,
-      { participant: RemoteParticipant | LocalParticipant; isLocal: boolean }
-    >();
-
-    if (local) {
-      participantMap.set(local.identity, { participant: local, isLocal: true });
-    }
-
-    remoteList.forEach(p => {
-      if (!participantMap.has(p.identity)) {
-        participantMap.set(p.identity, { participant: p, isLocal: false });
-      }
-    });
-
-    return Array.from(participantMap.values());
-  }, [participants, localParticipant.localParticipant]);
-
-  if (allParticipants.length === 0) return null;
-
-  function abrirMenu(identity: string, nome: string, isLocal: boolean) {
-    const usuarioId = parseInt(identity, 10);
-    if (isNaN(usuarioId) || usuarioId <= 0) {
-      console.warn(`[VoiceRoom] Não foi possível parsear usuarioId da identity: "${identity}"`);
-    }
-    setMenuAberto({
-      identity,
-      nome,
-      isLocal,
-      usuarioId: isNaN(usuarioId) ? 0 : usuarioId,
-    });
-  }
-
-  return (
-    <div className="border-t border-outline-variant/20 bg-surface-container-low/90 backdrop-blur-sm">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between px-4 py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container-high/50"
-      >
-        <div className="flex items-center gap-2">
-          <Users size={14} />
-          <span className="text-xs font-medium">
-            {allParticipants.length} participante
-            {allParticipants.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        {isExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-      </button>
-
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <div className="flex flex-wrap gap-2 px-4 pb-3">
-          {allParticipants.map(({ participant, isLocal }) => {
-            const meta = getParticipantMeta(participant);
-            // FIX: Use optional chaining and provide fallbacks
-            const nome =
-              meta?.nome || participant.name || participant.identity || 'Usuário';
-            const speaking = isSpeaking(participant);
-            const micEnabled =
-              participant instanceof RemoteParticipant
-                ? participant.isMicrophoneEnabled
-                : true;
-            const mutado = mutados.has(participant.identity);
-
-            return (
-              <button
-                key={`${participant.identity}-${isLocal ? 'local' : 'remote'}`}
-                onClick={() => abrirMenu(participant.identity, nome, isLocal)}
-                className={`flex items-center gap-2 rounded-lg bg-surface-container-high/60 px-3 py-1.5 transition-colors hover:bg-surface-container-highest ${
-                  speaking
-                    ? 'ring-2 ring-tertiary ring-offset-2 ring-offset-surface-container-low'
-                    : ''
-                }`}
-              >
-                <Avatar
-                  nome={nome}
-                  // FIX: Use optional chaining with fallback
-                  foto={meta?.foto}
-                  moldura={meta?.moldura}
-                  size={24}
-                />
-                <span className="max-w-[100px] truncate text-xs text-on-surface">
-                  {nome}
-                  {isLocal && ' (você)'}
-                </span>
-                {mutado && <VolumeX size={12} className="text-error" />}
-                {!micEnabled && !isLocal && (
-                  <MicOff size={12} className="text-error" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {menuAberto && (
-        <ParticipantMenu
-          identity={menuAberto.identity}
-          nome={menuAberto.nome}
-          isLocal={menuAberto.isLocal}
-          volume={volumes[menuAberto.identity] ?? 1}
-          mutadoParaMim={mutados.has(menuAberto.identity)}
-          onVolumeChange={v => {
-            setVolumes(prev => ({ ...prev, [menuAberto.identity]: v }));
-            onParticipantVolumeChange(menuAberto.identity, v);
-          }}
-          onToggleMute={() => {
-            setMutados(prev => {
-              const next = new Set(prev);
-              if (next.has(menuAberto.identity)) {
-                next.delete(menuAberto.identity);
-              } else {
-                next.add(menuAberto.identity);
-              }
-              return next;
-            });
-            onToggleLocalMute(menuAberto.identity);
-          }}
-          onViewProfile={() => {
-            if (menuAberto.usuarioId > 0) {
-              onViewProfile(menuAberto.usuarioId);
-            }
-            setMenuAberto(null);
-          }}
-          onClose={() => setMenuAberto(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// COMPONENTE PRINCIPAL - CORREÇÃO FINAL
-// ============================================================
 export default function VoiceRoomEmbed({
   room,
+  cameraLigada,
+  compartilhandoTela,
+  onToggleCamera,
+  onToggleScreenShare,
+  gravando,
   onParticipantVolumeChange,
   onToggleLocalMute,
   onViewProfile,
+  onIniciarGravacaoAudio,
+  onPararEBaixarGravacaoAudio,
 }: VoiceRoomEmbedProps) {
   if (!room) {
     return (
@@ -285,11 +58,17 @@ export default function VoiceRoomEmbed({
           data-lk-theme="default"
           style={{ height: '100%' }}
         >
-          <VideoConference />
-          <ParticipantsBar
+          <VoiceConferenceCustom
+            cameraLigada={cameraLigada}
+            compartilhandoTela={compartilhandoTela}
+            onToggleCamera={onToggleCamera}
+            onToggleScreenShare={onToggleScreenShare}
+            gravando={gravando}
             onParticipantVolumeChange={onParticipantVolumeChange}
             onToggleLocalMute={onToggleLocalMute}
             onViewProfile={onViewProfile}
+            onIniciarGravacaoAudio={onIniciarGravacaoAudio}
+            onPararEBaixarGravacaoAudio={onPararEBaixarGravacaoAudio}
           />
         </LiveKitRoom>
       </div>

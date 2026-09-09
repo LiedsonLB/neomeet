@@ -78,6 +78,23 @@ func idFromPath(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }
 
+// Heartbeat handles POST /usuarios/heartbeat — chamado pelo frontend
+// (PresenceHeartbeat.tsx) a cada ~30s enquanto o usuário está com o app
+// aberto, só pra atualizar usuario.ultimo_acesso (ver TouchAcesso). Usado
+// pelo indicador online/offline da aba "Membros" de uma comunidade.
+func (h *UsuarioHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+	if err := h.repo.TouchAcesso(session.ID); err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	httpx.Success(w, "ok", 200)
+}
+
 // Find handles GET /usuarios/{id}
 func (h *UsuarioHandler) Find(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)

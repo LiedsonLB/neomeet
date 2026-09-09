@@ -231,6 +231,38 @@ func (r *ComunidadeRepository) ListPendentes(comunidadeID int64) ([]*models.Comu
 	return out, rows.Err()
 }
 
+// ListMembros lista todos os membros efetivos (dono + membros comuns —
+// nunca solicitações pendentes) de uma comunidade, com indicador "online"
+// baseado em usuario.ultimo_acesso (heartbeat, ver
+// UsuarioRepository.TouchAcesso): consideramos online quem deu sinal de
+// vida nos últimos 2 minutos. Usada pela aba "Membros" (ver
+// ComunidadeHandler.Membros / MembrosModal.tsx no frontend).
+func (r *ComunidadeRepository) ListMembros(comunidadeID int64) ([]*models.MembroComPresenca, error) {
+	rows, err := r.db.Query(
+		`SELECT u.id, u.nome, u.foto, u.moldura, m.papel,
+		        (u.ultimo_acesso IS NOT NULL AND u.ultimo_acesso >= NOW() - INTERVAL 2 MINUTE) AS online
+		 FROM comunidade_membro m
+		 INNER JOIN usuario u ON u.id = m.usuario_id AND u.deleted_at IS NULL
+		 WHERE m.comunidade_id = ? AND m.papel != ?
+		 ORDER BY online DESC, u.nome ASC`,
+		comunidadeID, models.PapelPendente,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*models.MembroComPresenca
+	for rows.Next() {
+		m := &models.MembroComPresenca{}
+		if err := rows.Scan(&m.UsuarioID, &m.Nome, &m.Foto, &m.Moldura, &m.Papel, &m.Online); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 func (r *ComunidadeRepository) TotalMembros(comunidadeID int64) (int, error) {
 	var total int
 	err := r.db.QueryRow(`SELECT COUNT(id) FROM comunidade_membro WHERE comunidade_id = ? AND papel != ?`, comunidadeID, models.PapelPendente).Scan(&total)

@@ -5,7 +5,7 @@ import {
   Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, PhoneOff, X,
   MessageSquare, Loader2,
   ChevronLeft, ChevronRight,
-  ChevronDown, ChevronUp, LogIn, Music4,
+  ChevronDown, ChevronUp, LogIn, Music4, Users,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, canalApi, salaApi } from '../api/client';
@@ -16,7 +16,8 @@ import CriarCanalModal from '../components/CriarCanalModal';
 import GerenciarComunidadeModal from '../components/GerenciarComunidadeModal';
 import PerfilUsuarioModal from '../components/PerfilUsuarioModal';
 import SoundboardModal from '../components/SoundboardModal';
-import { useVoiceChannel } from '../hooks/useVoiceChannel';
+import MembrosModal from '../components/MembrosModal';
+import { useVoiceCall } from '../context/VoiceCallContext';
 import VoiceRoomEmbed from '../components/VoiceRoomEmbed';
 import AdmBadge from '../components/AdmBadge';
 import AppShell from '../layout/AppShell';
@@ -44,6 +45,7 @@ export default function ComunidadeRoom() {
   const [modalCriarCanal, setModalCriarCanal] = useState<null | 'texto' | 'voz'>(null);
   const [modalGerenciar, setModalGerenciar] = useState(false);
   const [modalSoundboard, setModalSoundboard] = useState(false);
+  const [modalMembros, setModalMembros] = useState(false);
   const [perfilAberto, setPerfilAberto] = useState<number | null>(null);
   const [menuAberto, setMenuAberto] = useState(false);
 
@@ -51,7 +53,7 @@ export default function ComunidadeRoom() {
   const [mostrarTodosParticipantes, setMostrarTodosParticipantes] = useState<{ [canalId: number]: boolean }>({});
   const [entrandoNaComunidade, setEntrandoNaComunidade] = useState(false);
 
-  const voz = useVoiceChannel();
+  const voz = useVoiceCall();
 
   const souDono = comunidade?.papel === 'dono';
   const ehMembro = comunidade?.papel === 'dono' || comunidade?.papel === 'membro';
@@ -90,8 +92,14 @@ export default function ComunidadeRoom() {
   useEffect(() => {
     setCarregando(true);
     setCanalTextoAtivoId(null);
-    setMostrarVoz(false);
+    // Se já estou conectado num canal de voz DESSA MESMA comunidade
+    // (ex.: vim do widget flutuante, ou só troquei de aba e voltei),
+    // reabre a visualização da call em vez de cair pro chat — a call em
+    // si nunca foi desconectada (ela vive no VoiceCallContext, acima das
+    // rotas), só a tela mudava antes.
+    setMostrarVoz(voz.conectado && voz.comunidadeId === comunidadeId);
     loadTudo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadTudo]);
 
   useEffect(() => {
@@ -113,10 +121,12 @@ export default function ComunidadeRoom() {
     return () => clearInterval(iv);
   }, [session, comunidadeId, ehMembro]);
 
-  useEffect(() => {
-    return () => { void voz.disconnect(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comunidadeId]);
+  // Nota: antes havia aqui um useEffect que chamava voz.disconnect() ao
+  // desmontar esse componente (trocar de tela) — era exatamente isso que
+  // derrubava a chamada ao navegar pra outro canal/perfil/comunidade. A
+  // conexão agora vive no VoiceCallContext (acima das rotas) e só cai
+  // quando a pessoa clica em "Sair da chamada" de verdade, no
+  // FloatingVoiceWidget ou na barra "Voz conectada" abaixo.
 
   // Guard síncrono contra duplo clique/StrictMode chamando abrirCanalVoz
   // duas vezes antes do `entrandoNoCanal` (state, assíncrono) conseguir
@@ -145,7 +155,7 @@ export default function ComunidadeRoom() {
     setEntrandoNoCanal(canal.id);
     try {
       const { token, url } = await salaApi.entrar(session, canal.sala_id);
-      await voz.connect(canal.id, canal.nome, token, url);
+      await voz.connect(canal.id, canal.nome, token, url, comunidade?.id, comunidade?.nome);
       setMostrarVoz(true);
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao entrar no canal de voz.');
@@ -248,13 +258,20 @@ export default function ComunidadeRoom() {
         <aside
           className={`flex flex-col border-r border-outline-variant bg-surface-container-low transition-all duration-300 ease-in-out ${sidebarExpandida ? 'w-64' : 'w-0 overflow-hidden border-0'}`}
         >
-          <div className="relative flex items-center justify-between border-b border-outline-variant/60 px-4 py-4">
+          <div className="relative flex items-center justify-between gap-1.5 border-b border-outline-variant/60 px-4 py-4">
             <h1 className="truncate text-sm font-bold text-on-surface">{comunidade.nome}</h1>
-            {souDono && (
-              <button onClick={() => setMenuAberto(v => !v)} className="text-on-surface-variant hover:text-on-surface">
-                <Settings size={16} />
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-3">
+              {ehMembro && (
+                <button onClick={() => setModalMembros(true)} title="Ver membros" className="text-on-surface-variant hover:text-on-surface">
+                  <Users size={16} />
+                </button>
+              )}
+              {souDono && (
+                <button onClick={() => setMenuAberto(v => !v)} className="text-on-surface-variant hover:text-on-surface">
+                  <Settings size={16} />
+                </button>
+              )}
+            </div>
             {menuAberto && (
               <div className="absolute right-3 top-12 z-30 w-48 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-highest shadow-xl">
                 <button
@@ -493,9 +510,16 @@ export default function ComunidadeRoom() {
           {mostrarVoz && voz.conectado && voz.room && ehMembro ? (
             <VoiceRoomEmbed
               room={voz.room}
+              cameraLigada={voz.cameraLigada}
+              compartilhandoTela={voz.compartilhandoTela}
+              onToggleCamera={voz.toggleCamera}
+              onToggleScreenShare={voz.toggleScreenShare}
+              gravando={voz.gravando}
               onParticipantVolumeChange={voz.setParticipantVolume}
               onToggleLocalMute={voz.toggleLocalMute}
               onViewProfile={setPerfilAberto}
+              onIniciarGravacaoAudio={voz.iniciarGravacaoAudio}
+              onPararEBaixarGravacaoAudio={voz.pararEBaixarGravacaoAudio}
             />
           ) : canalTextoAtivo && session && usuario && ehMembro ? (
             <ChatPanel
@@ -562,6 +586,16 @@ export default function ComunidadeRoom() {
             souDono={souDono}
             onClose={() => setModalSoundboard(false)}
             onTocar={tocarSom}
+          />
+        )}
+
+        {modalMembros && session && (
+          <MembrosModal
+            session={session}
+            comunidadeId={comunidade.id}
+            comunidadeNome={comunidade.nome}
+            onClose={() => setModalMembros(false)}
+            onVerPerfil={(usuarioId) => { setModalMembros(false); setPerfilAberto(usuarioId); }}
           />
         )}
 

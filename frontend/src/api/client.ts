@@ -4,7 +4,7 @@
 import type {
   LoginResponse, ApiErrorBody, Usuario, Paginated,
   Sala, SalaTokenResponse, Comunidade, ComunidadeMembro, Canal, CanalMensagem, CanalTipo,
-  ComunidadeSom, Visibilidade,
+  ComunidadeSom, Visibilidade, MembroComPresenca,
 } from './types';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -85,6 +85,10 @@ export const usuarioApi = {
     authFetch<Usuario>(s, `/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (s: StoredSession, id: number) =>
     authFetch<void>(s, `/usuarios/${id}`, { method: 'DELETE' }),
+  /** "Sinal de vida" periódico (ver PresenceHeartbeat.tsx) — alimenta o
+   * indicador online/offline na aba Membros de uma comunidade. */
+  heartbeat: (s: StoredSession) =>
+    authFetch<{ message: string }>(s, '/usuarios/heartbeat', { method: 'POST' }),
 };
 
 // ---- esqueci / redefinir senha ------------------------------
@@ -224,6 +228,10 @@ export const comunidadeApi = {
     authFetch<{ message: string }>(s, `/comunidades/${comunidadeId}/membros/${usuarioId}/aprovar`, { method: 'POST' }),
   rejeitar: (s: StoredSession, comunidadeId: number, usuarioId: number) =>
     authFetch<{ message: string }>(s, `/comunidades/${comunidadeId}/membros/${usuarioId}`, { method: 'DELETE' }),
+  /** Qualquer membro vê — lista completa (dono + membros) com indicador
+   * online/offline, pra aba "Membros". */
+  membros: (s: StoredSession, id: number) =>
+    authFetch<MembroComPresenca[]>(s, `/comunidades/${id}/membros`),
 };
 
 // ============================================================

@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { VoiceCallProvider } from './context/VoiceCallContext';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
 import Dashboard from './pages/Dashboard';
@@ -11,6 +12,8 @@ import Perfil from './pages/Perfil';
 import RedefinirSenha from './pages/RedefinirSenha';
 import EsqueciSenha from './pages/EsqueciSenha';
 import ConfirmarEmail from './pages/ConfirmarEmail';
+import FloatingVoiceWidget from './components/FloatingVoiceWidget';
+import PresenceHeartbeat from './components/PresenceHeartbeat';
 
 // Componente que redireciona usuarios logados para o dashboard
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -82,7 +85,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <VoiceCallProvider>
+        <PresenceHeartbeat />
+        <AppRoutes />
+        <FloatingVoiceWidget />
+      </VoiceCallProvider>
     </AuthProvider>
   );
 }

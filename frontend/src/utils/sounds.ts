@@ -10,11 +10,15 @@
 const sons = {
   mensagem: new Audio('/sounds/mensagem.wav'),
   chamadaEntrada: new Audio('/sounds/chamada-entrada.wav'),
+  // Placeholder sintetizado — troque o arquivo em
+  // frontend/public/sounds/compartilhar-tela.wav pelo som definitivo
+  // quando quiser (mesmo nome/caminho, sem precisar mexer no código).
+  compartilharTela: new Audio('/sounds/compartilhar-tela.wav'),
 } as const;
 
 type NomeSom = keyof typeof sons;
 
-const ultimoPlay: Record<NomeSom, number> = { mensagem: 0, chamadaEntrada: 0 };
+const ultimoPlay: Record<NomeSom, number> = { mensagem: 0, chamadaEntrada: 0, compartilharTela: 0 };
 const COOLDOWN_MS = 350;
 
 function tocar(nome: NomeSom, volume = 0.6) {
@@ -33,4 +37,5 @@ function tocar(nome: NomeSom, volume = 0.6) {
 export const sounds = {
   mensagem: () => tocar('mensagem'),
   chamadaEntrada: () => tocar('chamadaEntrada', 0.7),
+  compartilharTela: () => tocar('compartilharTela', 0.7),
 };

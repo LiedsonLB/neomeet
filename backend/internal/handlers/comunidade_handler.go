@@ -234,6 +234,43 @@ func (h *ComunidadeHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 200, map[string]any{"message": msg, "papel": papel})
 }
 
+// Membros handles GET /comunidades/{id}/membros — lista todo mundo que já
+// faz parte da comunidade (dono + membros, nunca pendentes) com indicador
+// de presença online/offline. Qualquer membro (não só o dono) pode ver
+// essa lista — é a aba "Membros" da comunidade.
+func (h *ComunidadeHandler) Membros(w http.ResponseWriter, r *http.Request) {
+	id, err := idFromPath(r)
+	if err != nil {
+		httpx.Error(w, "Id inválido.", 422)
+		return
+	}
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+	if !session.IsAdmin() {
+		papel, err := h.repo.Papel(id, session.ID)
+		if err != nil {
+			httpx.Error(w, "Erro interno.", 500)
+			return
+		}
+		if papel != models.PapelDono && papel != models.PapelMembro {
+			httpx.Error(w, "Você precisa ser membro para ver os membros.", 403)
+			return
+		}
+	}
+	list, err := h.repo.ListMembros(id)
+	if err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	if list == nil {
+		list = []*models.MembroComPresenca{}
+	}
+	httpx.JSON(w, 200, list)
+}
+
 // Pendentes handles GET /comunidades/{id}/pendentes — só o dono vê quem
 // está esperando aprovação pra entrar numa comunidade privada.
 func (h *ComunidadeHandler) Pendentes(w http.ResponseWriter, r *http.Request) {

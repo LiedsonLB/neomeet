@@ -62,10 +62,8 @@ export default function Avatar({ nome, foto, moldura, size = 40, className = '',
     <div className={`relative inline-flex shrink-0 items-center justify-center ${className}`} style={{ width: ringSize, height: ringSize }}>
       {gradient ? (
         <div
-          className="flex items-center justify-center rounded-full p-[3px]"
-          style={{ width: ringSize, height: ringSize, background: gradient }}
         >
-          <div className="flex items-center justify-center rounded-full bg-surface-container-lowest p-[2px]">
+          <div className="flex items-center justify-center rounded-full p-[2px]">
             {avatarNode}
           </div>
         </div>

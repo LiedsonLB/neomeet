@@ -145,6 +145,18 @@ export interface CanalMensagem {
   usuario_foto: string | null;
 }
 
+/** Um membro efetivo (dono ou membro — nunca pendente) de uma comunidade,
+ * com indicador de presença (ver GET /comunidades/{id}/membros no
+ * backend). Usado pela aba "Membros" (MembrosModal.tsx). */
+export interface MembroComPresenca {
+  usuario_id: number;
+  nome: string;
+  foto: string | null;
+  moldura: string | null;
+  papel: PapelComunidade;
+  online: boolean;
+}
+
 /** Um clipe do soundboard de uma comunidade (estilo Discord). */
 export interface ComunidadeSom {
   id: number;

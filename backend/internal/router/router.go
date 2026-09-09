@@ -85,6 +85,7 @@ func New(d Deps) http.Handler {
 	mux.Handle("PUT /usuarios/{id}", auth(http.HandlerFunc(usuario.Update)))
 	mux.Handle("DELETE /usuarios/{id}", auth(http.HandlerFunc(usuario.Delete)))
 	mux.Handle("POST /usuarios/restore/{id}", auth(http.HandlerFunc(usuario.Restore)))
+	mux.Handle("POST /usuarios/heartbeat", auth(http.HandlerFunc(usuario.Heartbeat)))
 
 	// ---- uploads (fotos/banners de usuário, ícones/banners de comunidade,
 	// sons do soundboard) --------------------------------------------------
@@ -115,6 +116,7 @@ func New(d Deps) http.Handler {
 	mux.Handle("DELETE /comunidades/{id}", auth(http.HandlerFunc(comunidade.Delete)))
 	mux.Handle("POST /comunidades/{id}/entrar", auth(http.HandlerFunc(comunidade.Entrar)))
 	mux.Handle("GET /comunidades/{id}/pendentes", auth(http.HandlerFunc(comunidade.Pendentes)))
+	mux.Handle("GET /comunidades/{id}/membros", auth(http.HandlerFunc(comunidade.Membros)))
 	mux.Handle("POST /comunidades/{id}/membros/{usuarioId}/aprovar", auth(http.HandlerFunc(comunidade.Aprovar)))
 	mux.Handle("DELETE /comunidades/{id}/membros/{usuarioId}", auth(http.HandlerFunc(comunidade.Rejeitar)))
 

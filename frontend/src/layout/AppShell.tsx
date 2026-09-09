@@ -1,12 +1,13 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Home, Compass, LogOut, MessagesSquare, Plus, Loader2,
+  Home, Compass, LogOut, MessagesSquare, Plus, Loader2, Coffee,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { comunidadeApi, resolveFotoUrl } from '../api/client';
 import type { Comunidade } from '../api/types';
 import Avatar from '../components/Avatar';
+import AjudaModal from '../components/AjudaModal';
 
 const NAV_ITEMS = [
   { to: '/painel', label: 'Home', icon: Home },
@@ -32,6 +33,7 @@ export default function AppShell({ children, fullBleed }: AppShellProps) {
 
   const [comunidades, setComunidades] = useState<Comunidade[]>([]);
   const [loadingComunidades, setLoadingComunidades] = useState(true);
+  const [modalAjuda, setModalAjuda] = useState(false);
 
   function isActive(to: string) {
     return location.pathname === to || location.pathname.startsWith(`${to}/`);
@@ -125,8 +127,8 @@ export default function AppShell({ children, fullBleed }: AppShellProps) {
                     key={c.id}
                     title={pendente ? `${c.nome} (aguardando aprovação)` : c.nome}
                     onClick={() => navigate(`/comunidades/${c.id}`)}
-                    className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:rounded-xl ${ativo
-                      ? 'bg-surface-container-high text-on-primary-container shadow-glow'
+                    className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-sm font-bold transition-all hover:scale-110 ${ativo
+                      ? ' bg-surface-container-high text-on-primary-container shadow-glow'
                       : 'bg-surface-container-high text-on-surface-variant hover:bg-primary-container/60'
                       } ${pendente ? 'opacity-50' : ''}`}
                   >
@@ -157,6 +159,14 @@ export default function AppShell({ children, fullBleed }: AppShellProps) {
 
         {/* Footer - Perfil e Sair */}
         <div className="flex flex-col items-center gap-3 px-2">
+          <button
+            type="button"
+            title="Ajude no café do dev"
+            onClick={() => setModalAjuda(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-amber transition-all hover:bg-amber/15"
+          >
+            <Coffee size={19} />
+          </button>
           <button
             type="button"
             title="Meu perfil"
@@ -225,10 +235,15 @@ export default function AppShell({ children, fullBleed }: AppShellProps) {
         <button type="button" onClick={() => navigate('/comunidades?nova=1')} className="flex h-12 w-14 flex-col items-center justify-center text-outline">
           <Plus size={22} />
         </button>
+        <button type="button" onClick={() => setModalAjuda(true)} className="flex h-12 w-14 flex-col items-center justify-center text-amber">
+          <Coffee size={20} />
+        </button>
         <button type="button" onClick={() => navigate('/perfil')} className="flex h-12 w-14 flex-col items-center justify-center text-outline">
           <Avatar nome={usuario?.nome ?? '?'} foto={usuario?.foto} moldura={usuario?.moldura} size={22} />
         </button>
       </nav>
+
+      {modalAjuda && <AjudaModal onClose={() => setModalAjuda(false)} />}
     </div>
   );
 }

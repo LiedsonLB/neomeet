@@ -544,3 +544,15 @@ func (r *UsuarioRepository) Restore(id int64) error {
 func CheckPassword(hash, plain string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
+
+// TouchAcesso registra "visto por último agora" pro usuário — chamado
+// periodicamente pelo frontend (heartbeat, ver PresenceHeartbeat.tsx)
+// enquanto o app está aberto numa aba. Alimenta só o indicador de presença
+// (bolinha online/offline) na aba "Membros" de uma comunidade — ver
+// ComunidadeRepository.ListMembros. Consultado por query direta (não passa
+// por scanUsuario/usuarioColumns) pra não precisar tocar em nenhum outro
+// lugar que já lista usuários.
+func (r *UsuarioRepository) TouchAcesso(usuarioID int64) error {
+	_, err := r.db.Exec(`UPDATE usuario SET ultimo_acesso = NOW() WHERE id = ?`, usuarioID)
+	return err
+}
