@@ -14,7 +14,6 @@ import { useState } from 'react';
 import { X, Coffee, Copy, Check } from 'lucide-react';
 
 const CHAVE_PIX = 'liedson.b9@gmail.com';
-const QR_CODE_SRC = '/ajuda-cafe-qrcode.svg';
 const IMAGEM_LATERAL_SRC = '/ajuda-cafe-imagem.png';
 
 interface Props {
