@@ -62,15 +62,19 @@ export default function Cadastro() {
         {/* NOME */}
         <div className="space-y-1">
           <label htmlFor="nome" className={authField.label}>
-            Nome <span className="text-error">*</span>
+            Como você quer ser chamado? <span className="text-error">*</span>
           </label>
+
           <div className={authField.wrap}>
-            <div className={authField.icon}><User size={18} className="text-outline" /></div>
+            <div className={authField.icon}>
+              <User size={18} className="text-outline" />
+            </div>
+
             <input
               id="nome"
               type="text"
-              autoComplete="name"
-              placeholder="Seu nome completo"
+              autoComplete="nickname"
+              placeholder="Digite seu Nickname (vulgo)"
               value={nome}
               onChange={e => setNome(e.target.value)}
               required

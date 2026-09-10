@@ -27,8 +27,9 @@ func httpBaseURL(livekitURL string) string {
 }
 
 type twirpTrack struct {
-	Type  string `json:"type"`
-	Muted bool   `json:"muted"`
+	Type   string `json:"type"`
+	Source string `json:"source"`
+	Muted  bool   `json:"muted"`
 }
 
 type twirpParticipant struct {
@@ -95,9 +96,10 @@ func ListParticipants(livekitURL, apiKey, apiSecret, room string) ([]models.Part
 	participantes := make([]models.ParticipanteInfo, 0, len(out.Participants))
 	for _, p := range out.Participants {
 		var meta struct {
-			Nome    string `json:"nome"`
-			Foto    string `json:"foto"`
-			Moldura string `json:"moldura"`
+			Nome     string `json:"nome"`
+			Foto     string `json:"foto"`
+			Moldura  string `json:"moldura"`
+			Deafened bool   `json:"deafened"`
 		}
 		_ = json.Unmarshal([]byte(p.Metadata), &meta)
 
@@ -110,19 +112,33 @@ func ListParticipants(livekitURL, apiKey, apiSecret, room string) ([]models.Part
 		}
 
 		micEnabled := false
+		cameraOn := false
+		screenShare := false
 		for _, t := range p.Tracks {
 			if strings.EqualFold(t.Type, "AUDIO") && !t.Muted {
 				micEnabled = true
-				break
+			}
+			// "transmitindo": câmera ligada ou tela compartilhada, sem
+			// precisar entrar na call pra ver — o Type sozinho não
+			// diferencia os dois (ambos são "VIDEO"), só o Source.
+			if strings.EqualFold(t.Type, "VIDEO") && !t.Muted {
+				if strings.EqualFold(t.Source, "SCREEN_SHARE") {
+					screenShare = true
+				} else {
+					cameraOn = true
+				}
 			}
 		}
 
 		participantes = append(participantes, models.ParticipanteInfo{
-			Identity:   p.Identity,
-			Nome:       nome,
-			Foto:       meta.Foto,
-			Moldura:    meta.Moldura,
-			MicEnabled: micEnabled,
+			Identity:    p.Identity,
+			Nome:        nome,
+			Foto:        meta.Foto,
+			Moldura:     meta.Moldura,
+			MicEnabled:  micEnabled,
+			Deafened:    meta.Deafened,
+			CameraOn:    cameraOn,
+			ScreenShare: screenShare,
 		})
 	}
 	return participantes, nil

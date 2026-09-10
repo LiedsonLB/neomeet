@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, PhoneOff, X,
+  Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, HeadphoneOff, Video, ScreenShare, PhoneOff, X,
   MessageSquare, Loader2,
   ChevronLeft, ChevronRight,
   ChevronDown, ChevronUp, LogIn, Music4, Users,
@@ -213,6 +213,9 @@ export default function ComunidadeRoom() {
         foto: p.foto || null,
         moldura: p.moldura || null,
         micEnabled: p.micEnabled ?? true,
+        deafened: p.deafened ?? false,
+        cameraOn: p.cameraOn ?? false,
+        screenShare: p.screenShare ?? false,
         isLocal: p.isLocal ?? false,
       }));
     }
@@ -377,7 +380,15 @@ export default function ComunidadeRoom() {
                                 {p.nome}{conectadoAqui && p.isLocal && ' (você)'}
                               </span>
                             </div>
-                            {!p.micEnabled && <MicOff size={10} className="shrink-0 text-error" />}
+                            <div className="flex shrink-0 items-center gap-1">
+                              {p.screenShare && <ScreenShare size={10} className="text-tertiary" />}
+                              {p.cameraOn && <Video size={10} className="text-tertiary" />}
+                              {p.deafened ? (
+                                <HeadphoneOff size={10} className="text-error" />
+                              ) : !p.micEnabled && (
+                                <MicOff size={10} className="text-error" />
+                              )}
+                            </div>
                           </button>
                         ))}
 

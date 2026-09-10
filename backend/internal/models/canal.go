@@ -31,11 +31,14 @@ type Canal struct {
 
 // ParticipanteInfo para retornar na API
 type ParticipanteInfo struct {
-	Identity   string `json:"identity"`
-	Nome       string `json:"nome"`
-	Foto       string `json:"foto,omitempty"`
-	Moldura    string `json:"moldura,omitempty"`
-	MicEnabled bool   `json:"micEnabled"`
+	Identity    string `json:"identity"`
+	Nome        string `json:"nome"`
+	Foto        string `json:"foto,omitempty"`
+	Moldura     string `json:"moldura,omitempty"`
+	MicEnabled  bool   `json:"micEnabled"`
+	Deafened    bool   `json:"deafened,omitempty"`
+	CameraOn    bool   `json:"cameraOn,omitempty"`
+	ScreenShare bool   `json:"screenShare,omitempty"`
 }
 
 func (Canal) TableName() string { return "canal" }

@@ -9,6 +9,13 @@ export interface ParticipanteVoz {
   moldura: string | null;
   isSpeaking: boolean;
   micEnabled: boolean;
+  /** Ensurdecido (não está ouvindo ninguém) — visível pra quem está fora
+   * da call também, ver publicarDeafenedLocal/parseMetadata abaixo. */
+  deafened: boolean;
+  /** Câmera ligada. */
+  cameraOn: boolean;
+  /** Compartilhando tela. */
+  screenShare: boolean;
   isLocal: boolean;
   /** Volume local (só afeta o que EU escuto, não é enviado a ninguém). */
   volume: number;
@@ -19,14 +26,17 @@ export interface ParticipanteVoz {
 // A metadata do token (ver backend/internal/handlers/sala_handler.go,
 // método Entrar) já carrega {nome, foto, moldura} do usuário — assim não
 // precisamos de um endpoint extra de "membros" só pra desenhar o avatar
-// certo em cada tile de voz.
-function parseMetadata(raw: string): { foto: string | null; moldura: string | null } {
-  if (!raw) return { foto: null, moldura: null };
+// certo em cada tile de voz. O campo "deafened" não vem do token: é
+// publicado depois, via localParticipant.setMetadata() (ver
+// publicarDeafenedLocal), pois é um estado que só o próprio cliente sabe
+// (o LiveKit não tem noção de "ensurdecido").
+function parseMetadata(raw: string): { foto: string | null; moldura: string | null; deafened: boolean } {
+  if (!raw) return { foto: null, moldura: null, deafened: false };
   try {
-    const m = JSON.parse(raw) as { foto?: string; moldura?: string };
-    return { foto: m.foto ?? null, moldura: m.moldura ?? null };
+    const m = JSON.parse(raw) as { foto?: string; moldura?: string; deafened?: boolean };
+    return { foto: m.foto ?? null, moldura: m.moldura ?? null, deafened: m.deafened ?? false };
   } catch {
-    return { foto: null, moldura: null };
+    return { foto: null, moldura: null, deafened: false };
   }
 }
 
@@ -68,6 +78,10 @@ export function useVoiceChannel() {
 
   const volumesRef = useRef<Record<string, number>>({});
   const mutadosRef = useRef<Set<string>>(new Set());
+  // Espelha `deafened` de forma síncrona (o state React é assíncrono) —
+  // usado dentro de toParticipante/listeners do LiveKit, no mesmo padrão
+  // de mutadosRef/volumesRef acima.
+  const deafenedRef = useRef(false);
   const gravadoresRef = useRef<Record<string, { recorder: MediaRecorder; chunks: Blob[] }>>({});
   // Guard síncrono contra chamadas duplicadas de connect() — um guard só
   // em state (ex.: `conectando`) não é suficiente porque setState é
@@ -80,7 +94,7 @@ export function useVoiceChannel() {
   const conectandoRef = useRef(false);
 
   const toParticipante = useCallback((p: Participant, isLocal: boolean): ParticipanteVoz => {
-    const { foto, moldura } = parseMetadata(p.metadata ?? '');
+    const { foto, moldura, deafened: deafenedRemoto } = parseMetadata(p.metadata ?? '');
     return {
       identity: p.identity,
       nome: p.name || p.identity,
@@ -88,6 +102,12 @@ export function useVoiceChannel() {
       moldura,
       isSpeaking: p.isSpeaking,
       micEnabled: p.isMicrophoneEnabled,
+      // Pra mim mesmo, o estado "ao vivo" (deafenedRef) é mais confiável
+      // que a metadata (que só chega depois de ida e volta com o
+      // servidor) — pros outros, só dá pra saber pela metadata mesmo.
+      deafened: isLocal ? deafenedRef.current : deafenedRemoto,
+      cameraOn: p.isCameraEnabled,
+      screenShare: p.isScreenShareEnabled,
       isLocal,
       volume: volumesRef.current[p.identity] ?? 1,
       mutadoParaMim: mutadosRef.current.has(p.identity),
@@ -112,6 +132,30 @@ export function useVoiceChannel() {
       p.audioTrackPublications.forEach(pub => {
         if (pub.kind === Track.Kind.Audio) pub.setEnabled(!sur && !mutadosRef.current.has(p.identity));
       });
+    });
+  }, []);
+
+  // Publica o "ensurdecido" na metadata do meu participante (precisa do
+  // grant canUpdateOwnMetadata — ver backend/internal/handlers/
+  // sala_handler.go) — assim quem ainda não entrou no canal também vê
+  // esse selo (via ListParticipants), e quem já está na call vê em tempo
+  // real pelo evento ParticipantMetadataChanged. Faz merge com a
+  // metadata atual (nome/foto/moldura) em vez de substituir, senão a
+  // troca perderia o avatar de quem já está conectado.
+  const publicarDeafenedLocal = useCallback((sur: boolean) => {
+    const r = roomRef.current;
+    if (!r) return;
+    let meta: Record<string, unknown> = {};
+    try {
+      meta = r.localParticipant.metadata ? JSON.parse(r.localParticipant.metadata) : {};
+    } catch {
+      meta = {};
+    }
+    meta.deafened = sur;
+    void r.localParticipant.setMetadata(JSON.stringify(meta)).catch(() => {
+      // Token antigo em cache sem o grant canUpdateOwnMetadata, ou
+      // servidor indisponível — falha silenciosa, só não propaga o selo
+      // pra quem ainda não entrou na call.
     });
   }, []);
 
@@ -179,6 +223,7 @@ export function useVoiceChannel() {
     setCameraLigada(false);
     volumesRef.current = {};
     mutadosRef.current = new Set();
+    deafenedRef.current = deafened;
 
     const r = new Room();
     roomRef.current = r;
@@ -196,6 +241,16 @@ export function useVoiceChannel() {
     r.on(RoomEvent.ActiveSpeakersChanged, refreshParticipantes);
     r.on(RoomEvent.TrackMuted, refreshParticipantes);
     r.on(RoomEvent.TrackUnmuted, refreshParticipantes);
+    // Câmera/tela ligando ou desligando (local ou remoto) muda
+    // isCameraEnabled/isScreenShareEnabled de quem publicou — precisa
+    // recalcular a lista pro selo de "transmitindo" aparecer/sumir.
+    r.on(RoomEvent.TrackPublished, refreshParticipantes);
+    r.on(RoomEvent.TrackUnpublished, refreshParticipantes);
+    r.on(RoomEvent.LocalTrackPublished, refreshParticipantes);
+    // Alguém (inclusive eu) mudou o "ensurdecido" via
+    // publicarDeafenedLocal — atualiza o selo na hora, sem esperar o
+    // próximo evento de mic/track.
+    r.on(RoomEvent.ParticipantMetadataChanged, refreshParticipantes);
 
     r.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
       if (track.kind === Track.Kind.Audio) {
@@ -245,6 +300,7 @@ export function useVoiceChannel() {
     r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
       if (pub.source === Track.Source.ScreenShare) setCompartilhandoTela(false);
       if (pub.source === Track.Source.Camera) setCameraLigada(false);
+      refreshParticipantes();
     });
 
     // ============================================================
@@ -266,6 +322,7 @@ export function useVoiceChannel() {
     try {
       await r.connect(url, token);
       await r.localParticipant.setMicrophoneEnabled(!muted);
+      if (deafened) publicarDeafenedLocal(true);
       setRoom(r);
       setConectado(true);
       refreshParticipantes();
@@ -278,7 +335,7 @@ export function useVoiceChannel() {
       conectandoRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [muted, deafened, refreshParticipantes]);
+  }, [muted, deafened, refreshParticipantes, publicarDeafenedLocal]);
 
   const toggleMuted = useCallback(() => {
     setMuted(prev => {
@@ -291,16 +348,19 @@ export function useVoiceChannel() {
   const toggleDeafened = useCallback(() => {
     setDeafened(prev => {
       const next = !prev;
+      deafenedRef.current = next;
       aplicarDeafenRemoto(next);
+      publicarDeafenedLocal(next);
       // Ensurdecer também muta o microfone (como no Discord) — desmutar o
       // fone não desmuta o mic automaticamente, precisa dos dois cliques.
       if (next && !muted) {
         setMuted(true);
         void roomRef.current?.localParticipant.setMicrophoneEnabled(false);
       }
+      refreshParticipantes();
       return next;
     });
-  }, [aplicarDeafenRemoto, muted]);
+  }, [aplicarDeafenRemoto, publicarDeafenedLocal, muted, refreshParticipantes]);
 
   // ---- controles por participante (menu de contexto no avatar) --------
 

@@ -131,6 +131,9 @@ export interface ParticipanteInfo {
   foto?: string | null;
   moldura?: string | null;
   micEnabled: boolean;
+  deafened?: boolean;
+  cameraOn?: boolean;
+  screenShare?: boolean;
 }
 
 export interface CanalMensagem {

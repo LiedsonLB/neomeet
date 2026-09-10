@@ -176,11 +176,12 @@ func (h *SalaHandler) Entrar(w http.ResponseWriter, r *http.Request) {
 		Metadata(metadataJSON). // ← ADICIONAR ESTA LINHA
 		TTL(4 * time.Hour).
 		Grant(livekit.VideoGrant{
-			RoomJoin:       true,
-			Room:           sala.Codigo,
-			CanPublish:     true,
-			CanSubscribe:   true,
-			CanPublishData: true,
+			RoomJoin:             true,
+			Room:                 sala.Codigo,
+			CanPublish:           true,
+			CanSubscribe:         true,
+			CanPublishData:       true,
+			CanUpdateOwnMetadata: true,
 		}).
 		Sign()
 	if err != nil {

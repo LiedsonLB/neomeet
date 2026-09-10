@@ -36,8 +36,15 @@ type VideoGrant struct {
 	CanPublish     bool   `json:"canPublish,omitempty"`
 	CanSubscribe   bool   `json:"canSubscribe,omitempty"`
 	CanPublishData bool   `json:"canPublishData,omitempty"`
-	RoomAdmin      bool   `json:"roomAdmin,omitempty"`
-	RoomCreate     bool   `json:"roomCreate,omitempty"`
+	// CanUpdateOwnMetadata permite ao participante chamar
+	// localParticipant.setMetadata() depois de conectado — usado para
+	// publicar o estado de "ensurdecido" (deafened), que o LiveKit não
+	// sabe sozinho (não corresponde a nenhuma track silenciada), para que
+	// quem ainda não entrou no canal também veja esse selo (ver
+	// ListParticipants em internal/livekit/roomservice.go).
+	CanUpdateOwnMetadata bool `json:"canUpdateOwnMetadata,omitempty"`
+	RoomAdmin            bool `json:"roomAdmin,omitempty"`
+	RoomCreate           bool `json:"roomCreate,omitempty"`
 }
 
 type claims struct {

@@ -2,7 +2,7 @@ name: Deploy Resenha
 
 on:
   push:
-    branches: [ RESENHA-1 ]
+    branches: [ RESENHA-2 ]
 
 jobs:
 
