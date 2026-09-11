@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, RemoteAudioTrack, type Participant } from 'livekit-client';
+import { Room, RoomEvent, Track, RemoteAudioTrack, type Participant, type LocalAudioTrack } from 'livekit-client';
 import { sounds } from '../utils/sounds';
+import { NoiseSuppressionProcessor } from '../utils/noiseSuppression';
 
 export interface ParticipanteVoz {
   identity: string;
@@ -247,6 +248,16 @@ export function useVoiceChannel() {
     r.on(RoomEvent.TrackPublished, refreshParticipantes);
     r.on(RoomEvent.TrackUnpublished, refreshParticipantes);
     r.on(RoomEvent.LocalTrackPublished, refreshParticipantes);
+    // Supressão de ruído (vento, ventilador etc. — ver utils/noiseSuppression.ts)
+    // aplicada toda vez que o microfone é (re)publicado: no connect
+    // inicial (se já entra desmutado), na primeira vez que a pessoa
+    // desmuta (se entrou mutada, o LiveKit só publica o mic aí), e em
+    // qualquer republicação por troca de dispositivo.
+    r.on(RoomEvent.LocalTrackPublished, (pub) => {
+      if (pub.source === Track.Source.Microphone && pub.track) {
+        void aplicarSupressaoDeRuido(pub.track as LocalAudioTrack);
+      }
+    });
     // Alguém (inclusive eu) mudou o "ensurdecido" via
     // publicarDeafenedLocal — atualiza o selo na hora, sem esperar o
     // próximo evento de mic/track.
@@ -531,6 +542,18 @@ export function useVoiceChannel() {
     iniciarGravacaoAudio,
     pararEBaixarGravacaoAudio,
   };
+}
+
+/** Liga a supressão de ruído (RNNoise) na faixa de microfone recém-
+ * publicada — ver utils/noiseSuppression.ts. Falha silenciosa (só log em
+ * dev) em navegadores sem suporte a AudioWorklet: a chamada continua
+ * funcionando com o áudio cru, só sem a supressão extra. */
+async function aplicarSupressaoDeRuido(track: LocalAudioTrack) {
+  try {
+    await track.setProcessor(new NoiseSuppressionProcessor());
+  } catch (e) {
+    console.debug('[VoiceChannel] Supressão de ruído indisponível nesse navegador:', e);
+  }
 }
 
 /** Sanitiza uma string pra virar nome de arquivo (usado ao baixar o áudio

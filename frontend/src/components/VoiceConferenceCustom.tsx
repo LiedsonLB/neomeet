@@ -19,11 +19,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useTracks, useLocalParticipant, VideoTrack, type TrackReferenceOrPlaceholder,
 } from '@livekit/components-react';
-import { Track, RoomEvent, RemoteParticipant, LocalParticipant } from 'livekit-client';
+import { Track, RoomEvent, RemoteParticipant, LocalParticipant, RemoteTrackPublication } from 'livekit-client';
 import {
   Video, VideoOff, ScreenShare, ScreenShareOff,
   Maximize2, Minimize2, Pin, PinOff, MicOff, VolumeX, Volume1, Volume2, UserCircle2, Disc, Square,
-  TriangleAlert, X,
+  TriangleAlert, X, Eye, EyeOff,
 } from 'lucide-react';
 import Avatar from './Avatar';
 
@@ -75,6 +75,10 @@ interface MenuState {
   usuarioId: number;
   temAudio: boolean;
   ehScreenShare: boolean;
+  /** Só relevante quando ehScreenShare && !isLocal — se estou recebendo
+   * (true) ou parei de assistir (false) essa transmissão. Ver
+   * alternarAssistir/naoAssistindo abaixo. */
+  assistindo: boolean;
   fixado: boolean;
   x: number;
   y: number;
@@ -82,7 +86,7 @@ interface MenuState {
 
 function ContextMenu({
   menu, volume, mutadoParaMim, gravandoAgora, onVolumeChange, onToggleMute, onViewProfile,
-  onGravar, onTogglePin, onToggleFullscreen, onClose,
+  onGravar, onTogglePin, onToggleFullscreen, onToggleAssistir, onClose,
 }: {
   menu: MenuState;
   volume: number;
@@ -94,6 +98,7 @@ function ContextMenu({
   onGravar: () => void;
   onTogglePin: () => void;
   onToggleFullscreen: (() => void) | null;
+  onToggleAssistir: (() => void) | null;
   onClose: () => void;
 }) {
   return (
@@ -143,6 +148,16 @@ function ContextMenu({
           </>
         )}
 
+        {onToggleAssistir && (
+          <button
+            onClick={onToggleAssistir}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-on-surface hover:bg-surface-container-high"
+          >
+            {menu.assistindo ? <EyeOff size={15} /> : <Eye size={15} className="text-tertiary" />}
+            {menu.assistindo ? 'Parar de assistir' : 'Assistir tela'}
+          </button>
+        )}
+
         {onToggleFullscreen && (
           <button
             onClick={onToggleFullscreen}
@@ -164,13 +179,18 @@ function ContextMenu({
 }
 
 function Tile({
-  trackRef, grande, fixado, onContextMenuTile, onTogglePin, registerNode,
+  trackRef, grande, fixado, assistindo, onContextMenuTile, onTogglePin, onToggleAssistir, registerNode,
 }: {
   trackRef: TrackReferenceOrPlaceholder;
   grande?: boolean;
   fixado: boolean;
+  /** Só relevante pra tela compartilhada de outra pessoa — se estou
+   * recebendo (true, padrão) ou parei de assistir (false) essa
+   * transmissão. Ver naoAssistindo no componente pai. */
+  assistindo: boolean;
   onContextMenuTile: (e: React.MouseEvent, trackRef: TrackReferenceOrPlaceholder) => void;
   onTogglePin: (trackRef: TrackReferenceOrPlaceholder) => void;
+  onToggleAssistir: (trackRef: TrackReferenceOrPlaceholder) => void;
   registerNode: (chave: string, el: HTMLDivElement | null) => void;
 }) {
   // Clique simples no PRÓPRIO card (compartilhamento ou câmera) fixa/
@@ -188,6 +208,9 @@ function Tile({
   const micEnabled = participant instanceof RemoteParticipant ? participant.isMicrophoneEnabled : true;
   const temVideo = !!publication && !publication.isMuted && source !== Track.Source.ScreenShareAudio;
   const ehScreenShare = source === Track.Source.ScreenShare;
+  // Só remoto: a pessoa não "para de assistir" a própria tela. Ver
+  // naoAssistindo/alternarAssistir no componente pai.
+  const parouDeAssistir = ehScreenShare && !isLocal && !assistindo;
   const tileRef = useRef<HTMLDivElement>(null);
   const chave = chaveTrack(trackRef);
 
@@ -226,7 +249,7 @@ function Tile({
       window.clearTimeout(cliqueTimeoutRef.current);
       cliqueTimeoutRef.current = null;
     }
-    if (ehScreenShare) alternarTelaCheia();
+    if (ehScreenShare && !parouDeAssistir) alternarTelaCheia();
   }
 
   useEffect(() => () => {
@@ -244,7 +267,15 @@ function Tile({
       title={fixado ? 'Clique pra desafixar' : 'Clique pra fixar grande'}
       className={`group relative flex cursor-pointer items-center justify-center overflow-hidden rounded-2xl border bg-surface-container-high ${isSpeaking ? 'border-tertiary shadow-glow-tertiary' : fixado ? 'border-primary' : 'border-outline-variant/40'} ${grande ? 'h-full w-full' : 'aspect-video'}`}
     >
-      {temVideo ? (
+      {parouDeAssistir ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleAssistir(trackRef); }}
+          className="flex flex-col items-center justify-center gap-2 py-6 text-white/70 transition-colors hover:text-white"
+        >
+          <EyeOff size={grande ? 40 : 28} />
+          <span className="max-w-[220px] text-center text-xs font-medium">Você parou de assistir · clique pra voltar</span>
+        </button>
+      ) : temVideo ? (
         <VideoTrack trackRef={trackRef} className="h-full w-full object-contain bg-black" />
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 py-6">
@@ -255,7 +286,7 @@ function Tile({
       <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/50 px-2 py-0.5">
         {!micEnabled && !ehScreenShare && <MicOff size={11} className="text-error" />}
         <span className="max-w-[140px] truncate text-[11px] font-medium text-white">
-          {ehScreenShare ? `${nome} · tela` : nome}{isLocal && !ehScreenShare && ' (você)'}
+          {ehScreenShare ? `${nome} · tela${parouDeAssistir ? ' (pausada)' : ''}` : nome}{isLocal && !ehScreenShare && ' (você)'}
         </span>
       </div>
 
@@ -267,13 +298,24 @@ function Tile({
 
       {ehScreenShare && (
         <div className="absolute right-1.5 top-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={(e) => { e.stopPropagation(); alternarTelaCheia(); }}
-            title={emTelaCheia ? 'Sair da tela cheia' : 'Tela cheia (duplo clique)'}
-            className="rounded-md bg-black/50 p-1 text-white hover:bg-black/70"
-          >
-            {emTelaCheia ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-          </button>
+          {!isLocal && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleAssistir(trackRef); }}
+              title={assistindo ? 'Parar de assistir' : 'Assistir tela'}
+              className="rounded-md bg-black/50 p-1 text-white hover:bg-black/70"
+            >
+              {assistindo ? <Eye size={13} /> : <EyeOff size={13} className="text-tertiary" />}
+            </button>
+          )}
+          {!parouDeAssistir && (
+            <button
+              onClick={(e) => { e.stopPropagation(); alternarTelaCheia(); }}
+              title={emTelaCheia ? 'Sair da tela cheia' : 'Tela cheia (duplo clique)'}
+              className="rounded-md bg-black/50 p-1 text-white hover:bg-black/70"
+            >
+              {emTelaCheia ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -290,6 +332,10 @@ export default function VoiceConferenceCustom({
   const [volumes, setVolumes] = useState<Record<string, number>>({});
   const [mutados, setMutados] = useState<Set<string>>(new Set());
   const [fixado, setFixado] = useState<string | null>(null);
+  // Telas compartilhadas (de outras pessoas) que eu escolhi parar de
+  // assistir — guarda pela chave (identity-source, ver chaveTrack).
+  // Ausente do set = assistindo (padrão, igual antes dessa feature).
+  const [naoAssistindo, setNaoAssistindo] = useState<Set<string>>(new Set());
   const { localParticipant } = useLocalParticipant();
 
   // Mapa dos nós DOM de cada card — usado pra acionar tela cheia a
@@ -334,6 +380,42 @@ export default function VoiceConferenceCustom({
     }
   }, [tracks, fixado]);
 
+  // Idem pro set de "parei de assistir": se a pessoa parou de
+  // compartilhar e começar de novo depois, entra assistindo por padrão
+  // de novo (não fica "preso" mudo pra sempre por causa de uma sessão de
+  // compartilhamento antiga com a mesma chave identity-source).
+  useEffect(() => {
+    setNaoAssistindo(prev => {
+      if (prev.size === 0) return prev;
+      const chavesAtuais = new Set(tracks.map(chaveTrack));
+      const next = new Set([...prev].filter(chave => chavesAtuais.has(chave)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tracks]);
+
+  /** Alterna entre assistir/parar de assistir a tela de OUTRA pessoa —
+   * desinscreve de verdade do LiveKit (RemoteTrackPublication.
+   * setSubscribed(false)), economizando banda de quem escolheu não
+   * assistir, em vez de só esconder o vídeo localmente. */
+  function alternarAssistir(trackRef: TrackReferenceOrPlaceholder) {
+    const chave = chaveTrack(trackRef);
+    const pub = trackRef.publication;
+    setNaoAssistindo(prev => {
+      const next = new Set(prev);
+      if (next.has(chave)) {
+        next.delete(chave);
+        if (pub instanceof RemoteTrackPublication) pub.setSubscribed(true);
+      } else {
+        next.add(chave);
+        if (pub instanceof RemoteTrackPublication) pub.setSubscribed(false);
+        // Não faz sentido continuar fixada grande uma tela que acabei de
+        // escolher não assistir.
+        setFixado(f => (f === chave ? null : f));
+      }
+      return next;
+    });
+  }
+
   // Fixa automaticamente a PRIMEIRA vez que alguém começa a compartilhar
   // a tela (detecta a transição de "ninguém compartilhando" pra "alguém
   // compartilhando", não todo re-render), pra garantir que ninguém perca
@@ -366,6 +448,7 @@ export default function VoiceConferenceCustom({
       usuarioId: isNaN(usuarioId) ? 0 : usuarioId,
       temAudio: participant instanceof RemoteParticipant,
       ehScreenShare: source === Track.Source.ScreenShare,
+      assistindo: !naoAssistindo.has(chave),
       fixado: fixado === chave,
       x: e.clientX,
       y: e.clientY,
@@ -433,8 +516,10 @@ export default function VoiceConferenceCustom({
                 trackRef={focoTile}
                 grande
                 fixado
+                assistindo={!naoAssistindo.has(chaveTrack(focoTile))}
                 onContextMenuTile={abrirMenu}
                 onTogglePin={alternarPin}
+                onToggleAssistir={alternarAssistir}
                 registerNode={registerNode}
               />
             </div>
@@ -445,8 +530,10 @@ export default function VoiceConferenceCustom({
                     <Tile
                       trackRef={t}
                       fixado={false}
+                      assistindo={!naoAssistindo.has(chaveTrack(t))}
                       onContextMenuTile={abrirMenu}
                       onTogglePin={alternarPin}
+                      onToggleAssistir={alternarAssistir}
                       registerNode={registerNode}
                     />
                   </div>
@@ -470,8 +557,10 @@ export default function VoiceConferenceCustom({
                 key={chaveTrack(t)}
                 trackRef={t}
                 fixado={fixado === chaveTrack(t)}
+                assistindo={!naoAssistindo.has(chaveTrack(t))}
                 onContextMenuTile={abrirMenu}
                 onTogglePin={alternarPin}
+                onToggleAssistir={alternarAssistir}
                 registerNode={registerNode}
               />
             ))}
@@ -515,6 +604,11 @@ export default function VoiceConferenceCustom({
             setMenu(null);
           }}
           onToggleFullscreen={menu.ehScreenShare ? () => { alternarTelaCheiaPorChave(menu.chave); setMenu(null); } : null}
+          onToggleAssistir={menu.ehScreenShare && !menu.isLocal ? () => {
+            const trackRef = tracks.find(t => chaveTrack(t) === menu.chave);
+            if (trackRef) alternarAssistir(trackRef);
+            setMenu(null);
+          } : null}
           onViewProfile={() => {
             if (menu.usuarioId > 0) onViewProfile(menu.usuarioId);
             setMenu(null);
