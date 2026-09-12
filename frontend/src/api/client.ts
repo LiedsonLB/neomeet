@@ -30,20 +30,60 @@ export interface StoredSession {
 
 function tokenUserHeader(s: StoredSession) { return `${s.id}:${s.token}:${s.appKey}`; }
 
+// ---- sessão expirada -----------------------------------------
+// authFetch dispara este evento sempre que o backend responder 401/403
+// com o token inválido/expirado. O AuthContext escuta e faz o signOut
+// automático (redirecionando pro login) em vez de deixar a tela travada
+// com chamadas falhando silenciosamente.
+export const authEvents = new EventTarget();
+const SESSAO_EXPIRADA_EVENT = 'sessao-expirada';
+
+function isSessaoExpiradaError(res: Response, body: ApiErrorBody | null) {
+  if (res.status !== 401 && res.status !== 403) return false;
+  const msg = body?.message?.toLowerCase() ?? '';
+  return msg.includes('token') || msg.includes('acesso negado');
+}
+
 export async function authFetch<T>(session: StoredSession, path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', TokenUser: tokenUserHeader(session), ...(init.headers ?? {}) },
   });
-  return parseJsonOrThrow<T>(res);
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    if (isSessaoExpiradaError(res, body)) {
+      authEvents.dispatchEvent(new Event(SESSAO_EXPIRADA_EVENT));
+    }
+    throw new ApiError(body ?? { message: 'Erro de comunicação com o servidor.', code: res.status });
+  }
+  return body as T;
 }
 
+export function onSessaoExpirada(cb: () => void): () => void {
+  authEvents.addEventListener(SESSAO_EXPIRADA_EVENT, cb);
+  return () => authEvents.removeEventListener(SESSAO_EXPIRADA_EVENT, cb);
+}
+
+// ---- refresh automático de sessão -----------------------------
+// O backend já estende a validade do token a cada chamada autenticada
+// válida (sliding expiration). Este endpoint existe pra renovar a sessão
+// mesmo quando o usuário fica um tempo sem disparar nenhuma outra
+// requisição (aba aberta parada, chamada de vídeo sem outras chamadas à
+// API, etc.) — ver useSessionRefresh no AuthContext.
+export const acessoApi = {
+  refreshToken: (s: StoredSession) =>
+    authFetch<{ token: string; expira_em_minutos: number; renovado_em: string }>(s, '/acesso/refresh-token', { method: 'POST' }),
+};
+
 // ---- public ------------------------------------------------
-export async function login(email: string, senha: string): Promise<LoginResponse> {
+// manterConectado (default true) pede ao backend um "long token" (30 dias,
+// em vez de 120min) — combinado com o refresh automático, é o que evita
+// o usuário ser deslogado no meio do uso.
+export async function login(email: string, senha: string, manterConectado = true): Promise<LoginResponse> {
   const res = await fetch(`${API_URL}/acesso/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', AppKey: APP_KEY },
-    body: JSON.stringify({ email, senha }),
+    body: JSON.stringify({ email, senha, long_token: manterConectado ? 'sim' : 'nao' }),
   });
   return parseJsonOrThrow<LoginResponse>(res);
 }

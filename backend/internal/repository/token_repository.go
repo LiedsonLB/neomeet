@@ -124,6 +124,15 @@ func (r *TokenRepository) Check(usuarioID int64, token string, appCodigo string)
 		return nil, apperr.New("Token expirado, efetue login novamente!", 403)
 	}
 
+	// Sliding expiration: every valid request "refreshes" the token by
+	// pushing its expiry window forward, exactly like a refresh-token flow
+	// but without needing a second token. As long as the frontend keeps
+	// making authenticated requests (or calls /acesso/refresh-token) before
+	// limiteMin elapses, the session never actually expires.
+	if _, err := r.db.Exec("UPDATE aplicacao_acesso_token SET updated_at = NOW() WHERE id = ?", t.ID); err != nil {
+		return nil, err
+	}
+
 	return t, nil
 }
 

@@ -70,6 +70,9 @@ func New(d Deps) http.Handler {
 	)
 	mux.HandleFunc("POST /acesso/login", login.Run)
 	mux.HandleFunc("POST /acesso/check_token", login.CheckToken)
+	// Chamado periodicamente (ou ao voltar o foco na aba) pelo frontend
+	// para renovar a sessão automaticamente, sem exigir novo login.
+	mux.HandleFunc("POST /acesso/refresh-token", login.RefreshToken)
 	mux.HandleFunc("POST /acesso/esqueci-senha", login.EsqueciSenha)
 	mux.HandleFunc("POST /acesso/redefinir-senha", login.RedefinirSenha)
 	mux.HandleFunc("POST /acesso/confirmar-email", login.ConfirmarEmail)

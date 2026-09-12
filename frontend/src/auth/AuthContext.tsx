@@ -1,9 +1,15 @@
 // auth/AuthContext.tsx
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { login as apiLogin, APP_KEY, type StoredSession } from '../api/client';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { login as apiLogin, acessoApi, onSessaoExpirada, APP_KEY, type StoredSession } from '../api/client';
 import type { LoginResponse, Usuario } from '../api/types';
 
 const STORAGE_KEY = 'webleia.session';
+
+// A cada 20min renovamos a sessão em background — bem dentro da janela de
+// 120min do token curto e insignificante frente aos 30 dias do long token,
+// mas garante que uma aba parada (sem outras chamadas à API) nunca deixe
+// o token "esfriar" até expirar.
+const REFRESH_INTERVAL_MS = 20 * 60 * 1000;
 
 interface AuthState {
   session: StoredSession | null;
@@ -79,6 +85,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const session: StoredSession | null = usuario
     ? { id: usuario.id, token: usuario.token, appKey: APP_KEY, perfil: usuario.perfil }
     : null;
+
+  // Sessão expirada de verdade (token revogado, muito tempo sem abrir o
+  // app etc.) → desloga automaticamente em vez de deixar a tela travada
+  // com erros 401/403 silenciosos.
+  useEffect(() => {
+    return onSessaoExpirada(() => {
+      setUsuario(null);
+      setError('Sua sessão expirou. Faça login novamente.');
+    });
+  }, []);
+
+  // Refresh automático em background: mantém a sessão viva mesmo quando o
+  // usuário fica um tempo sem disparar outras chamadas à API.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
+  useEffect(() => {
+    if (!session) return;
+
+    const refresh = () => {
+      const current = sessionRef.current;
+      if (current) acessoApi.refreshToken(current).catch(() => {});
+    };
+
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    // Também renova ao voltar o foco na aba (ex.: notebook que hibernou).
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [session?.id, session?.token]);
 
   const isAdmin = usuario?.perfil === 1 || session?.perfil === 1;
 

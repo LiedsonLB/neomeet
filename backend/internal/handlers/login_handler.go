@@ -378,6 +378,48 @@ func (h *LoginHandler) CheckToken(w http.ResponseWriter, r *http.Request) {
 	httpx.Success(w, "Sucesso!", 200)
 }
 
+// RefreshToken handles POST /acesso/refresh-token. It piggybacks on the
+// same validation as CheckToken/RequireAuth (TokenRepository.Check), which
+// already slides the token's expiration window forward on every valid
+// call. Having a dedicated endpoint lets the frontend call it on an
+// interval (or right when the app regains focus) purely to keep the
+// session alive, without that traffic being tied to any particular
+// feature request.
+func (h *LoginHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.Header.Get("TokenUser"), ":")
+	if len(parts) < 3 {
+		httpx.Error(w, "Token inválido!", 401)
+		return
+	}
+	userID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || userID <= 0 || parts[1] == "" || parts[2] == "" {
+		httpx.Error(w, "Token inválido!", 401)
+		return
+	}
+
+	at, err := h.tokenRepo.Check(userID, parts[1], parts[2])
+	if err != nil {
+		if ae, ok := apperr.As(err); ok {
+			httpx.Error(w, ae.Message, ae.Status)
+		} else {
+			log.Println(err)
+			httpx.Error(w, "Erro interno.", 500)
+		}
+		return
+	}
+
+	limiteMin := models.TempoLimiteAPIMinutes
+	if models.IsLongToken(at.Token) {
+		limiteMin = models.TempoLimiteLongoAPIMinutes
+	}
+
+	httpx.JSON(w, 200, map[string]any{
+		"token":             at.Token,
+		"expira_em_minutos": limiteMin,
+		"renovado_em":       time.Now(),
+	})
+}
+
 type esqueciSenhaRequest struct {
 	Email string `json:"email"`
 }
