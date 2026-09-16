@@ -14,6 +14,7 @@ import EsqueciSenha from './pages/EsqueciSenha';
 import ConfirmarEmail from './pages/ConfirmarEmail';
 import FloatingVoiceWidget from './components/FloatingVoiceWidget';
 import PresenceHeartbeat from './components/PresenceHeartbeat';
+import Landing from './pages/Landing';
 
 // Componente que redireciona usuarios logados para o dashboard
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -43,8 +44,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Landing publica - visivel para logados e nao logados */}
+      <Route path="/" element={<Landing />} />
+
       {/* Rotas publicas - apenas para nao logados */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={
         <PublicRoute>
           <Login />
