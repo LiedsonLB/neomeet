@@ -82,11 +82,12 @@ func (r *UsuarioRepository) buildWhere(p ListParams) (string, []any) {
 	return strings.Join(clauses, " AND "), args
 }
 
-const usuarioColumns = "id, nome, email, senha, foto, banner, moldura, descricao, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
+const usuarioColumns = "id, nome, email, senha, foto, banner, moldura, descricao, links, jogos, status_customizado, atividade, atividade_tipo, perfil, email_verified_at, created_at, updated_at, deleted_at, aluno_id"
 
 func scanUsuario(row interface{ Scan(...any) error }) (*models.Usuario, error) {
 	u := &models.Usuario{}
-	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Banner, &u.Moldura, &u.Descricao, &u.Perfil,
+	err := row.Scan(&u.ID, &u.Nome, &u.Email, &u.Senha, &u.Foto, &u.Banner, &u.Moldura, &u.Descricao,
+		&u.Links, &u.Jogos, &u.StatusCustomizado, &u.Atividade, &u.AtividadeTipo, &u.Perfil,
 		&u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt, &u.AlunoID)
 	if err != nil {
 		return nil, err
@@ -482,6 +483,15 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	if u.Descricao != nil {
 		existing.Descricao = u.Descricao
 	}
+	if u.Links != nil {
+		existing.Links = u.Links
+	}
+	if u.Jogos != nil {
+		existing.Jogos = u.Jogos
+	}
+	if u.StatusCustomizado != nil {
+		existing.StatusCustomizado = u.StatusCustomizado
+	}
 	if u.Perfil > 0 {
 		existing.Perfil = u.Perfil
 	}
@@ -502,9 +512,11 @@ func (r *UsuarioRepository) Update(id int64, u *models.Usuario, plainSenha strin
 	}
 
 	_, err = r.db.Exec(
-		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, banner = ?, moldura = ?, descricao = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
+		`UPDATE usuario SET nome = ?, email = ?, senha = ?, foto = ?, banner = ?, moldura = ?, descricao = ?,
+		 links = ?, jogos = ?, status_customizado = ?, perfil = ?, aluno_id = ?, updated_at = NOW()
 		 WHERE id = ?`,
-		existing.Nome, existing.Email, senha, existing.Foto, existing.Banner, existing.Moldura, existing.Descricao, existing.Perfil, existing.AlunoID, id,
+		existing.Nome, existing.Email, senha, existing.Foto, existing.Banner, existing.Moldura, existing.Descricao,
+		existing.Links, existing.Jogos, existing.StatusCustomizado, existing.Perfil, existing.AlunoID, id,
 	)
 	if err != nil {
 		return nil, err
@@ -554,5 +566,18 @@ func CheckPassword(hash, plain string) bool {
 // lugar que já lista usuários.
 func (r *UsuarioRepository) TouchAcesso(usuarioID int64) error {
 	_, err := r.db.Exec(`UPDATE usuario SET ultimo_acesso = NOW() WHERE id = ?`, usuarioID)
+	return err
+}
+
+// SetAtividade atualiza a "presença rica" do usuário (ver
+// PresencaBadge.tsx): atividade é um texto livre curto ("Jogando
+// Minecraft", "Ouvindo música"), atividadeTipo é "jogo" | "voz" | "" (vazio
+// limpa a atividade, deixando só "disponível"). Também toca ultimo_acesso,
+// já que só faz sentido setar isso com o app aberto.
+func (r *UsuarioRepository) SetAtividade(usuarioID int64, atividade, atividadeTipo *string) error {
+	_, err := r.db.Exec(
+		`UPDATE usuario SET atividade = ?, atividade_tipo = ?, ultimo_acesso = NOW() WHERE id = ?`,
+		atividade, atividadeTipo, usuarioID,
+	)
 	return err
 }

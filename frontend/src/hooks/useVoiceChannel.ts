@@ -432,13 +432,27 @@ export function useVoiceChannel() {
    * suportar) — toca um efeito sonoro localmente e avisa o resto da sala
    * (via data channel) pra que todo mundo ouça o mesmo efeito. Parar o
    * compartilhamento (inclusive pelo painel nativo do navegador) é
-   * refletido pelo listener de LocalTrackUnpublished, acima. */
-  const toggleScreenShare = useCallback(async () => {
+   * refletido pelo listener de LocalTrackUnpublished, acima.
+   *
+   * `opcoes` deixa escolher resolução/FPS antes de compartilhar — "tela
+   * inteira / janela" e "áudio do sistema" já são escolhidos no próprio
+   * picker nativo do navegador (ou do Electron, ver desktop-app/picker.html),
+   * que abre automaticamente pelo setScreenShareEnabled abaixo. */
+  const toggleScreenShare = useCallback(async (opcoes?: { resolution?: 'hd' | 'fhd' | 'qhd'; frameRate?: 15 | 30 | 60 }) => {
     const r = roomRef.current;
     if (!r) return;
     try {
       if (!compartilhandoTela) {
-        await r.localParticipant.setScreenShareEnabled(true, { audio: true });
+        const resolucoes: Record<string, { width: number; height: number }> = {
+          hd: { width: 1280, height: 720 },
+          fhd: { width: 1920, height: 1080 },
+          qhd: { width: 2560, height: 1440 },
+        };
+        const resolucao = opcoes?.resolution ? resolucoes[opcoes.resolution] : undefined;
+        await r.localParticipant.setScreenShareEnabled(true, {
+          audio: true,
+          resolution: resolucao ? { ...resolucao, frameRate: opcoes?.frameRate ?? 30 } : undefined,
+        });
         setCompartilhandoTela(true);
         sounds.compartilharTela();
         const payload = new TextEncoder().encode(JSON.stringify({ type: 'tela-compartilhada' }));

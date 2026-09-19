@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { X, ImagePlus, Loader2, Globe, Lock } from 'lucide-react';
-import { comunidadeApi, uploadApi } from '../api/client';
+import { comunidadeApi, uploadApi, CATEGORIAS_COMUNIDADE } from '../api/client';
 import type { StoredSession } from '../api/client';
 import type { Comunidade, Visibilidade } from '../api/types';
 
@@ -13,6 +13,7 @@ interface Props {
 export default function CriarComunidadeModal({ session, onClose, onCreated }: Props) {
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [categoria, setCategoria] = useState('');
   const [visibilidade, setVisibilidade] = useState<Visibilidade>('publica');
   const [iconeFile, setIconeFile] = useState<File | null>(null);
   const [iconePreview, setIconePreview] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export default function CriarComunidadeModal({ session, onClose, onCreated }: Pr
       const created = await comunidadeApi.create(session, {
         nome: nome.trim(),
         descricao: descricao.trim() || undefined,
+        categoria: categoria || undefined,
         visibilidade,
         icone_url,
       });
@@ -94,6 +96,22 @@ export default function CriarComunidadeModal({ session, onClose, onCreated }: Pr
               placeholder="Sobre o que é essa comunidade?"
               maxLength={500}
             />
+          </div>
+
+          <div>
+            <label className="field-label">Categoria (opcional)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORIAS_COMUNIDADE.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoria(categoria === cat ? '' : cat)}
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${categoria === cat ? 'border-primary bg-primary/15 text-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>

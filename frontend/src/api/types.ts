@@ -2,6 +2,15 @@
 // types.ts
 // ============================================================
 
+/** Um link do perfil (GitHub, site pessoal, etc.) — ver campo `links`. */
+export interface UsuarioLink {
+  label: string;
+  url: string;
+}
+
+/** "" (vazio) == só "disponível", sem atividade específica agora. */
+export type AtividadeTipo = 'jogo' | 'voz' | '';
+
 export interface Usuario {
   id: number;
   nome: string;
@@ -11,6 +20,14 @@ export interface Usuario {
   moldura: string | null;
   /** Bio/descrição do usuário, mostrada no perfil (dele e dos outros). */
   descricao: string | null;
+  /** JSON serializado — usar parseLinks()/parseJogos() de api/client.ts pra ler. */
+  links: string | null;
+  jogos: string | null;
+  /** Status curto tipo bio rápida, ex.: "fazendo código e resenha". */
+  status_customizado: string | null;
+  /** Presença rica (ver PresencaBadge.tsx) — o que a pessoa está fazendo agora. */
+  atividade: string | null;
+  atividade_tipo: AtividadeTipo | null;
   perfil: number;
   email_verified_at: string | null;
   created_at: string;
@@ -28,6 +45,11 @@ export interface LoginResponse {
   banner: string | null;
   moldura: string | null;
   descricao: string | null;
+  links: string | null;
+  jogos: string | null;
+  status_customizado: string | null;
+  atividade: string | null;
+  atividade_tipo: AtividadeTipo | null;
   perfil: number;
   email_verified_at: string | null;
   token: string;
@@ -86,6 +108,8 @@ export interface Comunidade {
   id: number;
   nome: string;
   descricao: string | null;
+  /** Categoria livre (sugestões em CATEGORIAS_COMUNIDADE) — filtro em "Descobrir". */
+  categoria: string | null;
   visibilidade: Visibilidade;
   icone_url: string | null;
   banner_url: string | null;
@@ -169,4 +193,20 @@ export interface ComunidadeSom {
   arquivo_url: string;
   criado_por: number;
   created_at: string | null;
+}
+
+// ============================================================
+// PAINEL (home): "o que está rolando agora"
+// ============================================================
+
+/** Um canal de voz com gente dentro agora, numa comunidade do usuário. */
+export interface AtividadeAgora {
+  comunidade_id: number;
+  comunidade_nome: string;
+  comunidade_icone: string | null;
+  canal_id: number;
+  canal_nome: string;
+  canal_icone: string | null;
+  total_participantes: number;
+  participantes: ParticipanteInfo[];
 }

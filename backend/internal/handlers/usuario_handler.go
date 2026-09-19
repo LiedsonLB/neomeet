@@ -95,6 +95,43 @@ func (h *UsuarioHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	httpx.Success(w, "ok", 200)
 }
 
+type statusPayload struct {
+	// Atividade: texto livre curto ("Jogando Minecraft"). "" limpa.
+	Atividade string `json:"atividade"`
+	// AtividadeTipo: "jogo" | "voz" | "" — só controla o ícone/cor no
+	// frontend (ver PresencaBadge.tsx), o backend não valida o valor.
+	AtividadeTipo string `json:"atividade_tipo"`
+}
+
+// Status handles POST /usuarios/status — seta a "presença rica" do
+// usuário logado (o que está fazendo agora), distinto do Heartbeat (que só
+// marca "ainda aqui"). Chamado quando a pessoa escolhe um status manual no
+// perfil, ou automaticamente ao entrar/sair de um canal de voz.
+func (h *UsuarioHandler) Status(w http.ResponseWriter, r *http.Request) {
+	session := middleware.UserFromContext(r)
+	if session == nil {
+		httpx.Error(w, "Não autenticado.", 401)
+		return
+	}
+	var payload statusPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		httpx.Error(w, "Requisição inválida.", 422)
+		return
+	}
+	var atividade, tipo *string
+	if payload.Atividade != "" {
+		atividade = &payload.Atividade
+	}
+	if payload.AtividadeTipo != "" {
+		tipo = &payload.AtividadeTipo
+	}
+	if err := h.repo.SetAtividade(session.ID, atividade, tipo); err != nil {
+		httpx.Error(w, "Erro interno.", 500)
+		return
+	}
+	httpx.Success(w, "ok", 200)
+}
+
 // Find handles GET /usuarios/{id}
 func (h *UsuarioHandler) Find(w http.ResponseWriter, r *http.Request) {
 	id, err := idFromPath(r)
@@ -118,8 +155,14 @@ type usuarioPayload struct {
 	Banner    *string `json:"banner"`
 	Moldura   *string `json:"moldura"`
 	Descricao *string `json:"descricao"`
-	Perfil    int     `json:"perfil"`
-	AlunoID   *int64  `json:"aluno_id"`
+	// Links (JSON: [{"label":"GitHub","url":"..."}]) e Jogos (JSON:
+	// ["Minecraft","Valorant"]) chegam já serializados do frontend — o
+	// backend só guarda a string, não interpreta o conteúdo.
+	Links             *string `json:"links"`
+	Jogos             *string `json:"jogos"`
+	StatusCustomizado *string `json:"status_customizado"`
+	Perfil            int     `json:"perfil"`
+	AlunoID           *int64  `json:"aluno_id"`
 }
 
 // nilIfEmpty evita gravar string vazia como se fosse um valor real — o
@@ -238,14 +281,17 @@ func (h *UsuarioHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Prepara o usuário para atualização
 	u := &models.Usuario{
-		Nome:      payload.Nome,
-		Email:     payload.Email,
-		Foto:      nilIfEmpty(payload.Foto),
-		Banner:    nilIfEmpty(payload.Banner),
-		Moldura:   nilIfEmpty(payload.Moldura),
-		Descricao: nilIfEmpty(payload.Descricao),
-		Perfil:    payload.Perfil,
-		AlunoID:   payload.AlunoID,
+		Nome:              payload.Nome,
+		Email:             payload.Email,
+		Foto:              nilIfEmpty(payload.Foto),
+		Banner:            nilIfEmpty(payload.Banner),
+		Moldura:           nilIfEmpty(payload.Moldura),
+		Descricao:         nilIfEmpty(payload.Descricao),
+		Links:             payload.Links,
+		Jogos:             payload.Jogos,
+		StatusCustomizado: nilIfEmpty(payload.StatusCustomizado),
+		Perfil:            payload.Perfil,
+		AlunoID:           payload.AlunoID,
 	}
 
 	// Atualiza no banco

@@ -89,6 +89,7 @@ func New(d Deps) http.Handler {
 	mux.Handle("DELETE /usuarios/{id}", auth(http.HandlerFunc(usuario.Delete)))
 	mux.Handle("POST /usuarios/restore/{id}", auth(http.HandlerFunc(usuario.Restore)))
 	mux.Handle("POST /usuarios/heartbeat", auth(http.HandlerFunc(usuario.Heartbeat)))
+	mux.Handle("POST /usuarios/status", auth(http.HandlerFunc(usuario.Status)))
 
 	// ---- uploads (fotos/banners de usuário, ícones/banners de comunidade,
 	// sons do soundboard) --------------------------------------------------
@@ -142,6 +143,10 @@ func New(d Deps) http.Handler {
 	mux.Handle("GET /comunidades/{id}/sons", auth(http.HandlerFunc(som.All)))
 	mux.Handle("POST /comunidades/{id}/sons", auth(http.HandlerFunc(som.Save)))
 	mux.Handle("DELETE /sons/{id}", auth(http.HandlerFunc(som.Delete)))
+
+	// ---- painel (home): "o que está rolando agora" -----------------------
+	painel := handlers.NewPainelHandler(d.ComunidadeRepo, d.CanalRepo, d.SalaRepo, d.LiveKitURL, d.LiveKitAPIKey, d.LiveKitAPISecret)
+	mux.Handle("GET /painel/atividades", auth(http.HandlerFunc(painel.Atividades)))
 
 	return withCORS(mux)
 }

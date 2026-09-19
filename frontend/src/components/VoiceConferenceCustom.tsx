@@ -23,7 +23,7 @@ import { Track, RoomEvent, RemoteParticipant, LocalParticipant, RemoteTrackPubli
 import {
   Video, VideoOff, ScreenShare, ScreenShareOff,
   Maximize2, Minimize2, Pin, PinOff, MicOff, VolumeX, Volume1, Volume2, UserCircle2, Disc, Square,
-  TriangleAlert, X, Eye, EyeOff,
+  TriangleAlert, X, Eye, EyeOff, ChevronDown,
 } from 'lucide-react';
 import Avatar from './Avatar';
 
@@ -48,7 +48,7 @@ interface Props {
   cameraLigada: boolean;
   compartilhandoTela: boolean;
   onToggleCamera: () => void;
-  onToggleScreenShare: () => void;
+  onToggleScreenShare: (opcoes?: { resolution?: 'hd' | 'fhd' | 'qhd'; frameRate?: 15 | 30 | 60 }) => void;
   /** Aviso sobre o último compartilhamento de tela (ex.: "foi sem
    * áudio porque..."), vindo de useVoiceChannel.ts. `null`/ausente = sem
    * nada pra mostrar. */
@@ -332,6 +332,12 @@ export default function VoiceConferenceCustom({
   const [volumes, setVolumes] = useState<Record<string, number>>({});
   const [mutados, setMutados] = useState<Set<string>>(new Set());
   const [fixado, setFixado] = useState<string | null>(null);
+  // Opções de qualidade do compartilhamento de tela (ver botão na barra
+  // inferior) — resolução/FPS pedidos no roadmap de "compartilhamento
+  // de tela essencial".
+  const [mostrarOpcoesTela, setMostrarOpcoesTela] = useState(false);
+  const [resolucaoTela, setResolucaoTela] = useState<'hd' | 'fhd' | 'qhd'>('fhd');
+  const [fpsTela, setFpsTela] = useState<15 | 30 | 60>(30);
   // Telas compartilhadas (de outras pessoas) que eu escolhi parar de
   // assistir — guarda pela chave (identity-source, ver chaveTrack).
   // Ausente do set = assistindo (padrão, igual antes dessa feature).
@@ -486,13 +492,50 @@ export default function VoiceConferenceCustom({
           >
             {cameraLigada ? <Video size={15} /> : <VideoOff size={15} />}
           </button>
-          <button
-            onClick={onToggleScreenShare}
-            title={compartilhandoTela ? 'Parar compartilhamento' : 'Compartilhar tela (com áudio)'}
-            className={`rounded-lg p-2 transition-colors ${compartilhandoTela ? 'bg-tertiary text-on-tertiary' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}
-          >
-            {compartilhandoTela ? <ScreenShareOff size={15} /> : <ScreenShare size={15} />}
-          </button>
+          <div className="relative">
+            <div className="flex items-stretch overflow-hidden rounded-lg">
+              <button
+                onClick={() => onToggleScreenShare({ resolution: resolucaoTela, frameRate: fpsTela })}
+                title={compartilhandoTela ? 'Parar compartilhamento' : 'Compartilhar tela (com áudio)'}
+                className={`p-2 transition-colors ${compartilhandoTela ? 'bg-tertiary text-on-tertiary' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}
+              >
+                {compartilhandoTela ? <ScreenShareOff size={15} /> : <ScreenShare size={15} />}
+              </button>
+              {!compartilhandoTela && (
+                <button
+                  onClick={() => setMostrarOpcoesTela(v => !v)}
+                  title="Opções de qualidade"
+                  className="border-l border-white/10 bg-white/5 px-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white/70"
+                >
+                  <ChevronDown size={12} />
+                </button>
+              )}
+            </div>
+            {mostrarOpcoesTela && !compartilhandoTela && (
+              <div className="absolute bottom-full right-0 z-30 mb-2 w-44 rounded-lg border border-white/10 bg-[#161616] p-2 text-xs shadow-xl">
+                <p className="mb-1 px-1 text-[10px] uppercase tracking-wide text-white/40">Resolução</p>
+                {(['hd', 'fhd', 'qhd'] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setResolucaoTela(r)}
+                    className={`block w-full rounded px-2 py-1 text-left ${resolucaoTela === r ? 'bg-primary/20 text-primary' : 'text-white/70 hover:bg-white/10'}`}
+                  >
+                    {{ hd: '720p', fhd: '1080p', qhd: '1440p' }[r]}
+                  </button>
+                ))}
+                <p className="mb-1 mt-2 px-1 text-[10px] uppercase tracking-wide text-white/40">FPS</p>
+                {([15, 30, 60] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setFpsTela(f)}
+                    className={`block w-full rounded px-2 py-1 text-left ${fpsTela === f ? 'bg-primary/20 text-primary' : 'text-white/70 hover:bg-white/10'}`}
+                  >
+                    {f} fps
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

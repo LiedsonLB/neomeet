@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "description": "A desktop application for Resenha, a social media platform.",
   "main": "main.js",
-  "author": "LiedsonLB",
+  "author": {
+    "name": "LiedsonLB",
+    "email": "SEU_EMAIL_AQUI@exemplo.com"
+  },
+  "homepage": "https://resenha.mooo.com",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -24,6 +28,9 @@
     },
     "files": [
       "main.js",
+      "picker.html",
+      "picker-renderer.js",
+      "picker-preload.js",
       "build/**/*"
     ],
     "win": {
@@ -36,12 +43,13 @@
       "createDesktopShortcut": true
     },
     "linux": {
-      "target": ["AppImage"],
-      "icon": "build/resenha.png"
+      "target": ["AppImage", "deb"],
+      "category": "Network",
+      "icon": "build/resenha_icon.png"
     },
     "mac": {
       "target": ["dmg"],
-      "icon": "build/resenha.icns"
+      "icon": "build/resenha_icon.icns"
     }
   }
 }

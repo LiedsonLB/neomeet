@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, Calendar, AlertCircle } from 'lucide-react';
-import { usuarioApi, resolveFotoUrl } from '../api/client';
+import { X, Loader2, Calendar, AlertCircle, Gamepad2, Link2 } from 'lucide-react';
+import { usuarioApi, resolveFotoUrl, parseLinks, parseJogos } from '../api/client';
 import type { StoredSession } from '../api/client';
 import type { Usuario } from '../api/types';
 import Avatar from './Avatar';
+import PresencaBadge from './PresencaBadge';
+import { computeBadges } from '../utils/badges';
 
 interface Props {
   session: StoredSession;
@@ -68,12 +70,51 @@ export default function PerfilUsuarioModal({ session, usuarioId, onClose }: Prop
               <h2 className="text-lg font-bold text-on-surface">{usuario.nome}</h2>
               <p className="text-xs text-on-surface-variant">{usuario.email}</p>
 
+              {usuario.atividade && (
+                <div className="mt-2">
+                  <PresencaBadge online atividade={usuario.atividade} atividadeTipo={usuario.atividade_tipo} />
+                </div>
+              )}
+
+              {usuario.status_customizado && (
+                <p className="mt-2 text-xs italic text-on-surface-variant">"{usuario.status_customizado}"</p>
+              )}
+
               {usuario.descricao ? (
                 <p className="mt-3 whitespace-pre-wrap break-words rounded-lg bg-surface-container-high px-3 py-2.5 text-sm text-on-surface">
                   {usuario.descricao}
                 </p>
               ) : (
                 <p className="mt-3 text-xs italic text-on-surface-variant/70">Sem descrição.</p>
+              )}
+
+              {computeBadges(usuario, 0).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {computeBadges(usuario, 0).map(b => (
+                    <span key={b.id} className="rounded-full border border-outline-variant/30 bg-surface-container-highest px-2.5 py-1 text-[11px] text-on-surface" title={b.label}>
+                      {b.emoji} {b.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {parseJogos(usuario.jogos).length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <Gamepad2 size={12} className="text-secondary" />
+                  {parseJogos(usuario.jogos).map((jogo, i) => (
+                    <span key={i} className="rounded-full bg-surface-container-highest px-2 py-0.5 text-[11px] text-on-surface">{jogo}</span>
+                  ))}
+                </div>
+              )}
+
+              {parseLinks(usuario.links).length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {parseLinks(usuario.links).map((link, i) => (
+                    <a key={i} href={link.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1 text-[11px] text-primary hover:underline">
+                      <Link2 size={11} /> {link.label || link.url}
+                    </a>
+                  ))}
+                </div>
               )}
 
               {usuario.created_at && (

@@ -16,6 +16,11 @@ const (
 	VisibilidadePrivada = "privada"
 )
 
+// CategoriasComunidade são as categorias sugeridas na tela "Descobrir"
+// (ver Dashboard.tsx). Não é um enum rígido no banco — o dono digita
+// livre ao criar a comunidade — só a lista usada nos chips de filtro.
+var CategoriasComunidade = []string{"Jogos", "Tecnologia", "Música", "Filmes", "Esportes", "Estudos", "Humor"}
+
 // Comunidade é o equivalente a um "servidor" do Discord: um espaço com
 // vários canais (texto e voz) dentro. Ver migrations/0003_comunidades.up.sql
 // e 0005_visibilidade_som.up.sql (campo Visibilidade).
@@ -23,6 +28,9 @@ type Comunidade struct {
 	ID           int64      `json:"id" db:"id"`
 	Nome         string     `json:"nome" db:"nome"`
 	Descricao    *string    `json:"descricao" db:"descricao"`
+	// Categoria alimenta os filtros da tela "Descobrir" (ver
+	// migrations/0008_comunidade_categoria.up.sql). Vazio = "Geral".
+	Categoria    *string    `json:"categoria" db:"categoria"`
 	Visibilidade string     `json:"visibilidade" db:"visibilidade"`
 	IconeURL     *string    `json:"icone_url" db:"icone_url"`
 	BannerURL    *string    `json:"banner_url" db:"banner_url"`

@@ -1,10 +1,10 @@
 // Dashboard.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, ArrowRight, Compass, Sparkles } from 'lucide-react';
+import { Search, Users, ArrowRight, Compass, Sparkles, Radio, Mic } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { comunidadeApi, resolveFotoUrl } from '../api/client';
-import type { Comunidade } from '../api/types';
+import { comunidadeApi, resolveFotoUrl, painelApi, CATEGORIAS_COMUNIDADE } from '../api/client';
+import type { Comunidade, AtividadeAgora } from '../api/types';
 import AppShell from '../layout/AppShell';
 
 function primeiroNome(nome?: string) {
@@ -17,9 +17,22 @@ export default function Dashboard() {
 
   const [minhasComunidades, setMinhasComunidades] = useState<Comunidade[]>([]);
   const [explorar, setExplorar] = useState<Comunidade[]>([]);
+  const [atividades, setAtividades] = useState<AtividadeAgora[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+
+  // "O que está rolando agora" — atualiza a cada 20s pra sentir "ao vivo"
+  // sem precisar abrir SSE nova só pra home.
+  useEffect(() => {
+    if (!session) return;
+    let mounted = true;
+    const carregar = () => painelApi.atividades(session).then(list => { if (mounted) setAtividades(list); }).catch(() => {});
+    carregar();
+    const iv = setInterval(carregar, 20_000);
+    return () => { mounted = false; clearInterval(iv); };
+  }, [session]);
 
   useEffect(() => {
     if (!session) { setLoading(false); return; }
@@ -43,10 +56,12 @@ export default function Dashboard() {
   }, [session]);
 
   const descobrir = useMemo(() => {
-    if (!busca.trim()) return explorar;
+    let lista = explorar;
+    if (categoriaFiltro) lista = lista.filter(c => c.categoria === categoriaFiltro);
+    if (!busca.trim()) return lista;
     const termo = busca.trim().toLowerCase();
-    return explorar.filter(c => c.nome.toLowerCase().includes(termo));
-  }, [explorar, busca]);
+    return lista.filter(c => c.nome.toLowerCase().includes(termo));
+  }, [explorar, busca, categoriaFiltro]);
 
   if (!session) {
     return (
@@ -85,6 +100,38 @@ export default function Dashboard() {
         <p className="rounded-lg border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-on-error-container">
           {error}
         </p>
+      )}
+
+      {/* ---- O que está rolando agora ---- */}
+      {atividades.length > 0 && (
+        <section className="flex flex-col gap-stack-md">
+          <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
+            <Radio size={20} className="text-tertiary" /> O que está rolando agora
+          </h2>
+          <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-3">
+            {atividades.map(a => (
+              <button
+                key={a.canal_id}
+                type="button"
+                onClick={() => navigate(`/comunidades/${a.comunidade_id}?canal=${a.canal_id}`)}
+                className="glass-card flex items-center gap-3 rounded-2xl p-4 text-left transition-colors hover:bg-surface-container-high"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-tertiary/15 text-tertiary">
+                  <Mic size={20} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-on-surface">{a.canal_nome}</p>
+                  <p className="truncate text-xs text-on-surface-variant">{a.comunidade_nome}</p>
+                  <p className="mt-0.5 flex items-center gap-1 text-[11px] text-tertiary">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-tertiary" />
+                    {a.total_participantes} pessoa{a.total_participantes !== 1 ? 's' : ''} conversando
+                  </p>
+                </div>
+                <ArrowRight size={16} className="shrink-0 text-outline" />
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* ---- Suas comunidades (onde é dono) ---- */}
@@ -193,13 +240,33 @@ export default function Dashboard() {
           </h2>
         </div>
 
+        <div className="-mt-2 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCategoriaFiltro('')}
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${categoriaFiltro === '' ? 'border-primary bg-primary/15 text-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`}
+          >
+            Todas
+          </button>
+          {CATEGORIAS_COMUNIDADE.map(cat => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoriaFiltro(categoriaFiltro === cat ? '' : cat)}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${categoriaFiltro === cat ? 'border-primary bg-primary/15 text-primary' : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <p className="text-sm text-on-surface-variant">Carregando…</p>
         ) : descobrir.length === 0 ? (
           <div className="glass-card flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-variant py-10 text-center">
             <Compass size={22} className="text-outline" />
             <p className="text-sm text-on-surface-variant">
-              {busca.trim() ? 'Nenhuma comunidade encontrada com esses filtros.' : 'Nenhuma comunidade disponível para descobrir.'}
+              {busca.trim() || categoriaFiltro ? 'Nenhuma comunidade encontrada com esses filtros.' : 'Nenhuma comunidade disponível para descobrir.'}
             </p>
           </div>
         ) : (

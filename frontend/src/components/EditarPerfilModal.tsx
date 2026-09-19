@@ -1,10 +1,11 @@
 // components/EditarPerfilModal.tsx
 import { useState, useRef } from 'react';
-import { X, Camera, Upload, Loader2 } from 'lucide-react';
+import { X, Camera, Upload, Loader2, Plus, Trash2, Link2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { usuarioApi, uploadApi, resolveFotoUrl } from '../api/client';
-import type { LoginResponse, Usuario } from '../api/types';
+import { usuarioApi, uploadApi, resolveFotoUrl, parseLinks, parseJogos, stringifyLinks, stringifyJogos } from '../api/client';
+import type { LoginResponse, Usuario, UsuarioLink } from '../api/types';
 import { MOLDURAS } from './Avatar';
+import ImageCropperModal from './ImageCropperModal';
 
 interface EditarPerfilModalProps {
   usuario: LoginResponse;
@@ -21,7 +22,11 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
     email: usuario.email || '',
     moldura: usuario.moldura || '',
     descricao: usuario.descricao || '',
+    statusCustomizado: usuario.status_customizado || '',
   });
+  const [links, setLinks] = useState<UsuarioLink[]>(parseLinks(usuario.links));
+  const [jogos, setJogos] = useState<string[]>(parseJogos(usuario.jogos));
+  const [novoJogo, setNovoJogo] = useState('');
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -31,22 +36,36 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
   const fotoInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  // Imagem crua selecionada, aguardando passar pelo cropper antes de virar
+  // fotoFile/bannerFile de fato (ver ImageCropperModal.tsx).
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropVariant, setCropVariant] = useState<'foto' | 'banner' | null>(null);
+
   if (!session) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'foto' | 'banner') => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo depois
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (type === 'foto') {
-        setFotoFile(file);
-        setFotoPreview(reader.result as string);
-      } else {
-        setBannerFile(file);
-        setBannerPreview(reader.result as string);
-      }
+      setCropSrc(reader.result as string);
+      setCropVariant(type);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = (file: File) => {
+    const url = URL.createObjectURL(file);
+    if (cropVariant === 'foto') {
+      setFotoFile(file);
+      setFotoPreview(url);
+    } else if (cropVariant === 'banner') {
+      setBannerFile(file);
+      setBannerPreview(url);
+    }
+    setCropSrc(null);
+    setCropVariant(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +95,9 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
         banner: bannerUrl,
         moldura: formData.moldura,
         descricao: formData.descricao,
+        status_customizado: formData.statusCustomizado,
+        links: stringifyLinks(links),
+        jogos: stringifyJogos(jogos),
       });
 
       onUpdated(updated);
@@ -272,6 +294,99 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
             <p className="mt-1 text-right text-[10px] text-outline">{formData.descricao.length}/300</p>
           </div>
 
+          {/* Status curto (presença rica) */}
+          <div>
+            <label htmlFor="status" className="mb-2 block text-sm font-medium text-on-surface-variant">
+              Status (aparece do lado do seu nome)
+            </label>
+            <input
+              id="status"
+              type="text"
+              value={formData.statusCustomizado}
+              onChange={(e) => setFormData({ ...formData, statusCustomizado: e.target.value })}
+              maxLength={80}
+              placeholder="ex.: fazendo código e resenha"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder-outline-variant transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Jogos favoritos */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-on-surface-variant">Jogos favoritos</label>
+            <div className="mb-2 flex flex-wrap gap-2">
+              {jogos.map((jogo, i) => (
+                <span key={i} className="flex items-center gap-1.5 rounded-full bg-surface-container-highest px-3 py-1 text-xs text-on-surface">
+                  🎮 {jogo}
+                  <button type="button" onClick={() => setJogos(jogos.filter((_, idx) => idx !== i))} className="text-on-surface-variant hover:text-error">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={novoJogo}
+                onChange={(e) => setNovoJogo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && novoJogo.trim()) {
+                    e.preventDefault();
+                    setJogos([...jogos, novoJogo.trim()]);
+                    setNovoJogo('');
+                  }
+                }}
+                maxLength={40}
+                placeholder="ex.: Minecraft"
+                className="flex-1 rounded-lg border border-outline-variant bg-surface-container px-4 py-2 text-sm text-on-surface placeholder-outline-variant focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => { if (novoJogo.trim()) { setJogos([...jogos, novoJogo.trim()]); setNovoJogo(''); } }}
+                className="rounded-lg border border-outline-variant px-3 text-on-surface-variant hover:bg-surface-container-highest"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Links */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-on-surface-variant">Links</label>
+            <div className="flex flex-col gap-2">
+              {links.map((link, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Link2 size={14} className="shrink-0 text-outline" />
+                  <input
+                    type="text"
+                    value={link.label}
+                    onChange={(e) => setLinks(links.map((l, idx) => (idx === i ? { ...l, label: e.target.value } : l)))}
+                    placeholder="Nome (ex.: GitHub)"
+                    className="w-28 shrink-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 py-1.5 text-xs text-on-surface placeholder-outline-variant focus:border-primary focus:outline-none"
+                  />
+                  <input
+                    type="url"
+                    value={link.url}
+                    onChange={(e) => setLinks(links.map((l, idx) => (idx === i ? { ...l, url: e.target.value } : l)))}
+                    placeholder="https://…"
+                    className="flex-1 rounded-lg border border-outline-variant bg-surface-container px-2.5 py-1.5 text-xs text-on-surface placeholder-outline-variant focus:border-primary focus:outline-none"
+                  />
+                  <button type="button" onClick={() => setLinks(links.filter((_, idx) => idx !== i))} className="shrink-0 text-on-surface-variant hover:text-error">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {links.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => setLinks([...links, { label: '', url: '' }])}
+                  className="flex items-center gap-1.5 self-start rounded-lg border border-dashed border-outline-variant px-3 py-1.5 text-xs text-on-surface-variant hover:border-primary hover:text-primary"
+                >
+                  <Plus size={14} /> Adicionar link
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Botões */}
           <div className="flex items-center justify-end gap-3 border-t border-outline-variant/20 pt-4">
             <button
@@ -287,6 +402,16 @@ export default function EditarPerfilModal({ usuario, onClose, onUpdated }: Edita
           </div>
         </form>
       </div>
+
+      {cropSrc && cropVariant && (
+        <ImageCropperModal
+          src={cropSrc}
+          variant={cropVariant === 'foto' ? 'avatar' : 'banner'}
+          fileName={cropVariant === 'foto' ? 'avatar.jpg' : 'banner.jpg'}
+          onCancel={() => { setCropSrc(null); setCropVariant(null); }}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </div>
   );
 }

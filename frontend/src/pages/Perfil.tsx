@@ -1,13 +1,15 @@
 // Perfil.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Video, Users, ArrowRight, BadgeCheck, LogOut, Pencil } from 'lucide-react';
+import { Video, Users, ArrowRight, BadgeCheck, LogOut, Pencil, Gamepad2, Link2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { comunidadeApi, resolveFotoUrl, ApiError } from '../api/client';
+import { comunidadeApi, resolveFotoUrl, ApiError, parseLinks, parseJogos } from '../api/client';
 import type { Comunidade, Usuario } from '../api/types';
 import AppShell from '../layout/AppShell';
 import EditarPerfilModal from '../components/EditarPerfilModal';
 import Avatar from '../components/Avatar';
+import PresencaBadge from '../components/PresencaBadge';
+import { computeBadges } from '../utils/badges';
 
 export default function Perfil() {
   const { session, usuario, signOut, refreshUser } = useAuth();
@@ -64,9 +66,8 @@ export default function Perfil() {
               <div className="relative z-10 rounded-full border-4 border-surface-container bg-surface-container-highest">
                 <Avatar nome={usuario.nome} foto={usuario.foto} moldura={usuario.moldura} size={128} />
               </div>
-              <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-surface-bright bg-surface-container px-2 py-1 shadow-lg backdrop-blur-sm md:bottom-4 md:right-4">
-                <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-tertiary shadow-[0_0_8px_#00dce5]" />
-                <span className="text-label-sm text-on-surface">Online</span>
+              <div className="absolute bottom-2 right-2 z-20 md:bottom-4 md:right-4">
+                <PresencaBadge online atividade={usuario.atividade} atividadeTipo={usuario.atividade_tipo} size="md" />
               </div>
             </div>
 
@@ -98,8 +99,43 @@ export default function Perfil() {
               )}
             </div>
             <p className="mb-4 text-label-md text-primary">{usuario.email}</p>
+            {usuario.status_customizado && (
+              <p className="mb-2 text-body-md italic text-on-surface-variant">"{usuario.status_customizado}"</p>
+            )}
             {usuario.descricao && (
               <p className="mb-4 max-w-xl whitespace-pre-wrap break-words text-label-md text-on-surface-variant">{usuario.descricao}</p>
+            )}
+
+            {/* Badges computados */}
+            {computeBadges(usuario, minhasComunidades.length).length > 0 && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {computeBadges(usuario, minhasComunidades.length).map(b => (
+                  <span key={b.id} className="flex items-center gap-1.5 rounded-full border border-outline-variant/30 bg-surface-container-highest px-3 py-1 text-label-sm text-on-surface" title={b.label}>
+                    {b.emoji} {b.label}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Jogos favoritos */}
+            {parseJogos(usuario.jogos).length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <Gamepad2 size={14} className="text-secondary" />
+                {parseJogos(usuario.jogos).map((jogo, i) => (
+                  <span key={i} className="rounded-full bg-surface-container-highest px-2.5 py-1 text-label-sm text-on-surface">{jogo}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Links */}
+            {parseLinks(usuario.links).length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                {parseLinks(usuario.links).map((link, i) => (
+                  <a key={i} href={link.url} target="_blank" rel="noreferrer noopener" className="flex items-center gap-1.5 text-label-sm text-primary hover:underline">
+                    <Link2 size={13} /> {link.label || link.url}
+                  </a>
+                ))}
+              </div>
             )}
             <div className="mt-6 flex flex-wrap gap-2">
               <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-surface-container-highest px-3 py-1.5">

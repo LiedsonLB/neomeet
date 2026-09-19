@@ -4,8 +4,10 @@ import {
   ArrowRight,
   Bolt,
   Check,
+  ChevronDown,
   Download,
   Gamepad2,
+  HardDriveDownload,
   MessageSquare,
   Mic,
   Monitor,
@@ -13,29 +15,61 @@ import {
   Shield,
   Users,
   Video,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 
 /* ==================================================================== */
-/* DOWNLOAD DO APP DESKTOP — mude só aqui quando lançar versão nova      */
+/* DOWNLOADS — mude só aqui quando lançar versão nova                    */
 /* ==================================================================== */
 /*
- * `url` precisa ser link DIRETO pro .exe (abrir no navegador já baixa,
- * sem tela de confirmação). GitHub Releases funciona bem pra isso:
- *   https://github.com/USUARIO/REPO/releases/download/v1.0.0/arquivo.exe
- * Não funciona: Google Drive, OneDrive, Dropbox, MEGA (mostram página
- * de aviso em vez de baixar).
+ * `url` precisa ser link DIRETO pro arquivo (abrir no navegador já baixa,
+ * sem tela de confirmação). GitHub Releases funciona bem pra isso.
+ * Não funciona: Google Drive, OneDrive, Dropbox, MEGA.
  */
-const WINDOWS_DOWNLOAD = {
-  url: 'https://github.com/LiedsonLB/neomeet/releases/download/v1.0.0/Resenha.1.0.0.exe',
-  version: '1.0.0',
-  size: '78 MB', // ex.: '78 MB' — deixe vazio pra não mostrar
-  requisito: 'Windows 10 ou superior (64 bits)',
-};
+const VERSAO = '1.0.0';
 
-function isWindows(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent);
+const DOWNLOADS = [
+  {
+    id: 'windows',
+    label: 'Windows',
+    detalhe: 'Windows 10 ou superior (64 bits)',
+    formato: 'Instalador .exe',
+    size: '72 MB',
+    icon: Monitor,
+    url: `https://github.com/LiedsonLB/neomeet/releases/download/v${VERSAO}/Resenha.${VERSAO}.exe`,
+    recomendado: 'windows' as const,
+  },
+  {
+    id: 'linux-deb',
+    label: 'Linux — Debian / Ubuntu',
+    detalhe: 'Pacote nativo para distros baseadas em Debian',
+    formato: 'Pacote .deb (amd64)',
+    size: '73 MB',
+    icon: HardDriveDownload,
+    url: `https://github.com/LiedsonLB/neomeet/releases/download/v${VERSAO}/Resenha_${VERSAO}_amd64.deb`,
+    recomendado: 'linux' as const,
+  },
+  {
+    id: 'linux-appimage',
+    label: 'Linux — AppImage',
+    detalhe: 'Portátil, roda em qualquer distribuição',
+    formato: 'AppImage',
+    size: '105 MB',
+    icon: HardDriveDownload,
+    url: `https://github.com/LiedsonLB/neomeet/releases/download/v${VERSAO}/Resenha-${VERSAO}.AppImage`,
+    recomendado: 'linux' as const,
+  },
+] as const;
+
+type Plataforma = 'windows' | 'linux' | 'outro';
+
+function detectarPlataforma(): Plataforma {
+  if (typeof navigator === 'undefined') return 'outro';
+  const ua = navigator.userAgent;
+  if (/Windows|Win32|Win64|WOW64/i.test(ua)) return 'windows';
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'linux';
+  return 'outro';
 }
 
 /* ------------------------------------------------------------------ */
@@ -82,15 +116,150 @@ const DESTAQUES = [
   { valor: '1', legenda: 'Login só pra chat, call e sala' },
 ] as const;
 
+/* ------------------------------------------------------------------ */
+/* Modal de download — abre ao clicar em qualquer botão de download    */
+/* ------------------------------------------------------------------ */
+function ModalDownload({
+  aberto,
+  onFechar,
+  plataforma,
+}: {
+  aberto: boolean;
+  onFechar: () => void;
+  plataforma: Plataforma;
+}) {
+  const [baixando, setBaixando] = useState<string | null>(null);
+
+  // Fecha com ESC e trava scroll do body
+  useEffect(() => {
+    if (!aberto) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onFechar();
+    };
+    document.addEventListener('keydown', onKey);
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflowAnterior;
+    };
+  }, [aberto, onFechar]);
+
+  function handleBaixar(id: string) {
+    setBaixando(id);
+    window.setTimeout(() => setBaixando(null), 2500);
+  }
+
+  if (!aberto) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onFechar}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-download"
+    >
+      <div
+        className="relative w-full max-w-lg overflow-hidden rounded-t-3xl border border-outline-variant/30 bg-surface-container-low shadow-2xl sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho */}
+        <div className="flex items-start justify-between gap-4 border-b border-outline-variant/20 p-6 pb-5">
+          <div>
+            <h2
+              id="titulo-download"
+              className="text-headline-md text-on-surface"
+            >
+              Baixar o Resenha
+            </h2>
+            <p className="mt-1 text-body-md text-on-surface-variant">
+              Escolha a versão para o seu sistema. Versão {VERSAO}.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onFechar}
+            aria-label="Fechar"
+            className="shrink-0 rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-on-surface"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Lista de plataformas */}
+        <div className="space-y-3 p-6 pt-5">
+          {DOWNLOADS.map(
+            ({ id, label, detalhe, formato, size, icon: Icon, url, recomendado }) => {
+              const ehRecomendado = plataforma === recomendado;
+              const estaBaixando = baixando === id;
+
+              return (
+                <a
+                  key={id}
+                  href={url}
+                  onClick={() => handleBaixar(id)}
+                  className="group flex items-center gap-4 rounded-2xl border border-outline-variant/20 bg-surface-container p-4 transition-all hover:border-primary/40 hover:bg-surface-container-high"
+                >
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-container/20 text-primary">
+                    <Icon size={22} />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-label-md text-on-surface">
+                        {label}
+                      </span>
+                      {ehRecomendado && (
+                        <span className="rounded-full bg-tertiary/20 px-2 py-0.5 text-label-sm uppercase tracking-wide text-tertiary">
+                          Recomendado
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-label-sm text-on-surface-variant">
+                      {detalhe}
+                    </span>
+                    <span className="mt-1 block text-label-sm text-on-surface-variant/60">
+                      {formato} · {size}
+                    </span>
+                  </span>
+
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-on-primary">
+                    <Download
+                      size={18}
+                      className={estaBaixando ? 'animate-pulse' : ''}
+                    />
+                  </span>
+                </a>
+              );
+            },
+          )}
+
+          <p className="pt-2 text-center text-label-sm text-on-surface-variant/60">
+            macOS chega em breve. Dúvidas? Fale com a gente no chat.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing                                                             */
+/* ------------------------------------------------------------------ */
 export default function Landing() {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const [windows, setWindows] = useState(false);
-  const [baixando, setBaixando] = useState(false);
+  const [plataforma, setPlataforma] = useState<Plataforma>('outro');
   const [rolou, setRolou] = useState(false);
+  const [modalAberto, setModalAberto] = useState(false);
 
   useEffect(() => {
-    setWindows(isWindows());
+    setPlataforma(detectarPlataforma());
   }, []);
 
   useEffect(() => {
@@ -102,15 +271,13 @@ export default function Landing() {
   /** Destino do botão principal: já logado vai direto pro painel */
   const destinoApp = session ? '/painel' : '/login';
 
-  /**
-   * Dispara o download do instalador.
-   * Aponta a aba atual pro arquivo — o servidor entrega como
-   * application/octet-stream, então a página nem sai do lugar.
-   */
-  function handleDownload() {
-    setBaixando(true);
-    window.setTimeout(() => setBaixando(false), 2500);
-  }
+  /** Texto auxiliar abaixo dos CTAs — detecta a plataforma do usuário */
+  const textoPlataforma =
+    plataforma === 'windows'
+      ? `Detectamos Windows · versão ${VERSAO}`
+      : plataforma === 'linux'
+        ? `Detectamos Linux · versão ${VERSAO}`
+        : `Disponível para Windows e Linux · versão ${VERSAO}`;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface-container-lowest text-on-surface">
@@ -121,22 +288,32 @@ export default function Landing() {
 
       {/* ============================ NAVBAR ============================ */}
       <header
-        className={`fixed top-0 z-50 w-full transition-all duration-300 ${rolou
+        className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+          rolou
             ? 'border-b border-outline-variant/30 bg-surface-container-lowest/90 backdrop-blur-xl shadow-glow-soft'
             : 'bg-surface-container-lowest/40 backdrop-blur-xl'
-          }`}
+        }`}
       >
         <div className="mx-auto flex max-w-container-max items-center justify-between px-margin-mobile py-4 md:px-margin-desktop">
           <img src="/resenha_logo.png" alt="Resenha" className="h-8 md:h-9" />
 
           <nav className="hidden items-center gap-8 text-label-md uppercase tracking-wide md:flex">
-            <a href="#recursos" className="text-on-surface-variant transition-colors hover:text-on-surface">
+            <a
+              href="#recursos"
+              className="text-on-surface-variant transition-colors hover:text-on-surface"
+            >
               Recursos
             </a>
-            <a href="#sobre" className="text-on-surface-variant transition-colors hover:text-on-surface">
+            <a
+              href="#sobre"
+              className="text-on-surface-variant transition-colors hover:text-on-surface"
+            >
               Sobre
             </a>
-            <a href="#download" className="text-on-surface-variant transition-colors hover:text-on-surface">
+            <a
+              href="#download"
+              className="text-on-surface-variant transition-colors hover:text-on-surface"
+            >
               Download
             </a>
           </nav>
@@ -149,7 +326,6 @@ export default function Landing() {
 
       {/* ============================= HERO ============================= */}
       <section className="relative z-10 mx-auto max-w-container-max px-margin-mobile pb-stack-lg pt-32 md:px-margin-desktop md:pb-20 md:pt-20">
-
         {/* Moldura "print" do app — placeholder elegante enquanto não há screenshot */}
         <div className="mx-auto mt-stack-lg max-w-3xl">
           <div className="glass-panel overflow-hidden rounded-2xl p-2">
@@ -178,7 +354,7 @@ export default function Landing() {
 
           <p className="mx-auto mt-stack-md max-w-xl text-body-md text-on-surface-variant md:text-body-lg">
             Salas de vídeo, canais de voz, chat e comunidades num lugar só. Use
-            direto no navegador ou instale o app no Windows.
+            direto no navegador ou instale o app no Windows ou Linux.
           </p>
 
           {/* -------------------------- CTAs -------------------------- */}
@@ -192,26 +368,28 @@ export default function Landing() {
               <ArrowRight size={18} />
             </button>
 
-            <a
-              href={WINDOWS_DOWNLOAD.url}
-              onClick={handleDownload}
+            <button
+              type="button"
+              onClick={() => setModalAberto(true)}
               className="btn-ghost w-full px-6 py-3 text-base sm:w-auto"
             >
-              <Download size={18} className={baixando ? 'animate-pulse' : ''} />
-              {baixando ? 'Iniciando download...' : 'Baixar para Windows'}
-            </a>
+              <Download size={18} />
+              Baixar o app
+              <ChevronDown size={16} className="opacity-70" />
+            </button>
           </div>
 
           <p className="mt-4 text-label-sm text-on-surface-variant/70">
-            {windows
-              ? `Detectamos Windows · versão ${WINDOWS_DOWNLOAD.version}`
-              : `App desktop disponível só para Windows por enquanto · versão ${WINDOWS_DOWNLOAD.version}`}
+            {textoPlataforma}
           </p>
         </div>
       </section>
 
       {/* ============================= SOBRE ============================= */}
-      <section id="sobre" className="relative z-10 mx-auto max-w-container-max scroll-mt-24 px-margin-mobile py-stack-lg md:px-margin-desktop md:py-20">
+      <section
+        id="sobre"
+        className="relative z-10 mx-auto max-w-container-max scroll-mt-24 px-margin-mobile py-stack-lg md:px-margin-desktop md:py-20"
+      >
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-12">
           {/* Card principal — história do projeto */}
           <div className="group relative overflow-hidden rounded-2xl bg-surface-container-low p-8 md:col-span-8 md:p-12">
@@ -253,7 +431,9 @@ export default function Landing() {
               key={item.legenda}
               className="rounded-2xl border border-outline-variant/10 bg-surface-container-highest p-8 md:col-span-4"
             >
-              <h4 className="mb-2 text-headline-lg text-secondary-container">{item.valor}</h4>
+              <h4 className="mb-2 text-headline-lg text-secondary-container">
+                {item.valor}
+              </h4>
               <p className="text-label-sm uppercase tracking-widest text-on-surface-variant">
                 {item.legenda}
               </p>
@@ -304,10 +484,10 @@ export default function Landing() {
                 <Monitor size={24} />
               </div>
 
-              <h2 className="text-headline-md">Resenha para Windows</h2>
+              <h2 className="text-headline-md">Resenha para desktop</h2>
               <p className="mt-2 text-body-md text-on-surface-variant">
-                App nativo, abre mais rápido, roda em segundo plano e avisa quando
-                a galera entra na sala.
+                App nativo, abre mais rápido, roda em segundo plano e avisa
+                quando a galera entra na sala. Disponível para Windows e Linux.
               </p>
 
               <ul className="mt-stack-md space-y-2 text-left text-body-md text-on-surface-variant">
@@ -325,25 +505,25 @@ export default function Landing() {
             </div>
 
             <div className="w-full shrink-0 text-center md:w-auto">
-              <a
-                href={WINDOWS_DOWNLOAD.url}
-                onClick={handleDownload}
+              <button
+                type="button"
+                onClick={() => setModalAberto(true)}
                 className="btn-primary w-full px-7 py-3.5 text-base md:w-auto"
               >
-                <Download size={20} className={baixando ? 'animate-pulse' : ''} />
-                {baixando ? 'Iniciando download...' : 'Baixar instalador'}
-              </a>
+                <Download size={20} />
+                Baixar o app
+                <ChevronDown size={16} className="opacity-80" />
+              </button>
 
               <p className="mt-stack-sm text-label-sm text-on-surface-variant/70">
-                Versão {WINDOWS_DOWNLOAD.version}
-                {WINDOWS_DOWNLOAD.size ? ` · ${WINDOWS_DOWNLOAD.size}` : ''}
+                Versão {VERSAO}
                 <br />
-                {WINDOWS_DOWNLOAD.requisito}
+                Windows 10+ · Linux (.deb / AppImage)
               </p>
 
               <p className="mt-stack-sm inline-flex items-center gap-1.5 text-label-sm text-on-surface-variant/60">
                 <Shield size={14} />
-                macOS e Linux em breve
+                macOS em breve
               </p>
             </div>
           </div>
@@ -355,7 +535,9 @@ export default function Landing() {
         <div className="pointer-events-none absolute left-1/2 top-0 h-[30vw] w-[60vw] -translate-x-1/2 rounded-full bg-primary-container/20 blur-[130px]" />
 
         <div className="relative z-10 mx-auto max-w-3xl px-margin-mobile md:px-margin-desktop">
-          <h2 className="text-headline-lg-mobile uppercase md:text-headline-xl">Bora começar?</h2>
+          <h2 className="text-headline-lg-mobile uppercase md:text-headline-xl">
+            Bora começar?
+          </h2>
           <p className="mx-auto mt-stack-md max-w-md text-body-md text-on-surface-variant md:text-body-lg">
             Cria sua conta em menos de um minuto e chama a galera.
           </p>
@@ -369,14 +551,15 @@ export default function Landing() {
                 Criar conta grátis
               </Link>
             )}
-            <a
-              href={WINDOWS_DOWNLOAD.url}
-              onClick={handleDownload}
+            <button
+              type="button"
+              onClick={() => setModalAberto(true)}
               className="btn-ghost px-8 py-3.5 text-base"
             >
               <Download size={18} />
-              Baixar para Windows
-            </a>
+              Baixar o app
+              <ChevronDown size={16} className="opacity-70" />
+            </button>
           </div>
         </div>
       </section>
@@ -406,6 +589,13 @@ export default function Landing() {
           </p>
         </div>
       </footer>
+
+      {/* Modal de download — renderizado no fim pra ficar por cima de tudo */}
+      <ModalDownload
+        aberto={modalAberto}
+        onFechar={() => setModalAberto(false)}
+        plataforma={plataforma}
+      />
     </div>
   );
 }

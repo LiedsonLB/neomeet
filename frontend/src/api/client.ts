@@ -4,7 +4,7 @@
 import type {
   LoginResponse, ApiErrorBody, Usuario, Paginated,
   Sala, SalaTokenResponse, Comunidade, ComunidadeMembro, Canal, CanalMensagem, CanalTipo,
-  ComunidadeSom, Visibilidade, MembroComPresenca,
+  ComunidadeSom, Visibilidade, MembroComPresenca, UsuarioLink, AtividadeAgora, AtividadeTipo,
 } from './types';
 
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
@@ -129,7 +129,32 @@ export const usuarioApi = {
    * indicador online/offline na aba Membros de uma comunidade. */
   heartbeat: (s: StoredSession) =>
     authFetch<{ message: string }>(s, '/usuarios/heartbeat', { method: 'POST' }),
+  /** Seta a presença rica (ver PresencaBadge.tsx) — "Jogando Minecraft",
+   * "Na resenha", etc. atividade: '' limpa a atividade atual. */
+  setStatus: (s: StoredSession, atividade: string, atividadeTipo: AtividadeTipo) =>
+    authFetch<{ message: string }>(s, '/usuarios/status', {
+      method: 'POST',
+      body: JSON.stringify({ atividade, atividade_tipo: atividadeTipo }),
+    }),
 };
+
+// ---- perfil rico: links/jogos são guardados como JSON puro no backend ----
+export function parseLinks(json: string | null | undefined): UsuarioLink[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter(l => l && typeof l.url === 'string') : [];
+  } catch { return []; }
+}
+export function parseJogos(json: string | null | undefined): string[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed.filter(j => typeof j === 'string') : [];
+  } catch { return []; }
+}
+export function stringifyLinks(links: UsuarioLink[]): string { return JSON.stringify(links.filter(l => l.url.trim())); }
+export function stringifyJogos(jogos: string[]): string { return JSON.stringify(jogos.filter(j => j.trim())); }
 
 // ---- esqueci / redefinir senha ------------------------------
 export async function esqueciSenha(email: string): Promise<{ message: string }> {
@@ -245,13 +270,18 @@ export function resolveFotoUrl(foto: string | null | undefined): string | null {
 // ============================================================
 // COMUNIDADES
 // ============================================================
+// Espelha models.CategoriasComunidade no backend — só os chips de filtro/
+// sugestão de "Descobrir comunidades" e do modal de criar comunidade.
+export const CATEGORIAS_COMUNIDADE = ['Jogos', 'Tecnologia', 'Música', 'Filmes', 'Esportes', 'Estudos', 'Humor'];
+
 export const comunidadeApi = {
   /** "Minhas comunidades": dono, membro ou solicitação pendente. */
   list: (s: StoredSession) => authFetch<Comunidade[]>(s, '/comunidades'),
   /** "Explorar comunidades": públicas das quais eu ainda não faço parte. */
-  explorar: (s: StoredSession) => authFetch<Comunidade[]>(s, '/comunidades/explorar'),
+  explorar: (s: StoredSession, categoria?: string) =>
+    authFetch<Comunidade[]>(s, `/comunidades/explorar${buildQuery({ categoria })}`),
   find: (s: StoredSession, id: number) => authFetch<Comunidade>(s, `/comunidades/${id}`),
-  create: (s: StoredSession, body: { nome: string; descricao?: string | null; visibilidade?: Visibilidade; icone_url?: string | null; banner_url?: string | null }) =>
+  create: (s: StoredSession, body: { nome: string; descricao?: string | null; categoria?: string | null; visibilidade?: Visibilidade; icone_url?: string | null; banner_url?: string | null }) =>
     authFetch<Comunidade>(s, '/comunidades', { method: 'POST', body: JSON.stringify(body) }),
   update: (s: StoredSession, id: number, body: { nome?: string; descricao?: string | null; visibilidade?: Visibilidade; icone_url?: string | null; banner_url?: string | null }) =>
     authFetch<Comunidade>(s, `/comunidades/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
@@ -312,4 +342,11 @@ export const comunidadeSomApi = {
     authFetch<ComunidadeSom>(s, `/comunidades/${comunidadeId}/sons`, { method: 'POST', body: JSON.stringify(body) }),
   delete: (s: StoredSession, somId: number) =>
     authFetch<{ message: string }>(s, `/sons/${somId}`, { method: 'DELETE' }),
+};
+
+// ============================================================
+// PAINEL (home): "o que está rolando agora"
+// ============================================================
+export const painelApi = {
+  atividades: (s: StoredSession) => authFetch<AtividadeAgora[]>(s, '/painel/atividades'),
 };

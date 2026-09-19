@@ -17,11 +17,11 @@ func NewComunidadeRepository(db *sql.DB) *ComunidadeRepository {
 	return &ComunidadeRepository{db: db}
 }
 
-const comunidadeColumns = "id, nome, descricao, visibilidade, icone_url, banner_url, criado_por, created_at, updated_at, deleted_at"
+const comunidadeColumns = "id, nome, descricao, categoria, visibilidade, icone_url, banner_url, criado_por, created_at, updated_at, deleted_at"
 
 func scanComunidade(row interface{ Scan(...any) error }) (*models.Comunidade, error) {
 	c := &models.Comunidade{}
-	err := row.Scan(&c.ID, &c.Nome, &c.Descricao, &c.Visibilidade, &c.IconeURL, &c.BannerURL, &c.CriadoPor,
+	err := row.Scan(&c.ID, &c.Nome, &c.Descricao, &c.Categoria, &c.Visibilidade, &c.IconeURL, &c.BannerURL, &c.CriadoPor,
 		&c.CreatedAt, &c.UpdatedAt, &c.DeletedAt)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func scanComunidade(row interface{ Scan(...any) error }) (*models.Comunidade, er
 
 // Create cria a comunidade e já registra quem criou como "dono" em
 // comunidade_membro, numa única transação.
-func (r *ComunidadeRepository) Create(nome string, descricao, iconeURL, bannerURL *string, visibilidade string, criadoPor int64) (*models.Comunidade, error) {
+func (r *ComunidadeRepository) Create(nome string, descricao, iconeURL, bannerURL, categoria *string, visibilidade string, criadoPor int64) (*models.Comunidade, error) {
 	if nome == "" {
 		return nil, apperr.New("O nome da comunidade é obrigatório.", 422)
 	}
@@ -45,9 +45,9 @@ func (r *ComunidadeRepository) Create(nome string, descricao, iconeURL, bannerUR
 	defer tx.Rollback()
 
 	res, err := tx.Exec(
-		`INSERT INTO comunidade (nome, descricao, visibilidade, icone_url, banner_url, criado_por, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		nome, descricao, visibilidade, iconeURL, bannerURL, criadoPor,
+		`INSERT INTO comunidade (nome, descricao, categoria, visibilidade, icone_url, banner_url, criado_por, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		nome, descricao, categoria, visibilidade, iconeURL, bannerURL, criadoPor,
 	)
 	if err != nil {
 		return nil, err
@@ -109,17 +109,23 @@ func (r *ComunidadeRepository) ListByUsuario(usuarioID int64) ([]*models.Comunid
 // ListExplorar lista comunidades PÚBLICAS das quais o usuário ainda NÃO faz
 // parte (nem como membro, nem como pendente) — usada na aba "Explorar
 // comunidades" e na seção "Descobrir" do Dashboard.
-func (r *ComunidadeRepository) ListExplorar(usuarioID int64) ([]*models.Comunidade, error) {
+func (r *ComunidadeRepository) ListExplorar(usuarioID int64, categoria string) ([]*models.Comunidade, error) {
+	filtroCategoria := ""
+	args := []any{usuarioID}
+	if categoria != "" {
+		filtroCategoria = " AND c.categoria = ?"
+		args = append(args, categoria)
+	}
 	query := fmt.Sprintf(`
 		SELECT %s FROM comunidade c
 		WHERE c.deleted_at IS NULL
 		  AND c.visibilidade = '%s'
 		  AND NOT EXISTS (
 		    SELECT 1 FROM comunidade_membro m WHERE m.comunidade_id = c.id AND m.usuario_id = ?
-		  )
+		  )%s
 		ORDER BY c.created_at DESC`,
-		comunidadeColumns, models.VisibilidadePublica)
-	rows, err := r.db.Query(query, usuarioID)
+		comunidadeColumns, models.VisibilidadePublica, filtroCategoria)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +278,7 @@ func (r *ComunidadeRepository) TotalMembros(comunidadeID int64) (int, error) {
 type ComunidadeUpdate struct {
 	Nome         *string
 	Descricao    *string
+	Categoria    *string
 	Visibilidade *string
 	IconeURL     *string
 	BannerURL    *string
@@ -288,6 +295,9 @@ func (r *ComunidadeRepository) Update(id int64, u ComunidadeUpdate) (*models.Com
 	if u.Descricao != nil {
 		existing.Descricao = u.Descricao
 	}
+	if u.Categoria != nil {
+		existing.Categoria = u.Categoria
+	}
 	if u.Visibilidade != nil && (*u.Visibilidade == models.VisibilidadePublica || *u.Visibilidade == models.VisibilidadePrivada) {
 		existing.Visibilidade = *u.Visibilidade
 	}
@@ -298,8 +308,8 @@ func (r *ComunidadeRepository) Update(id int64, u ComunidadeUpdate) (*models.Com
 		existing.BannerURL = u.BannerURL
 	}
 	_, err = r.db.Exec(
-		`UPDATE comunidade SET nome = ?, descricao = ?, visibilidade = ?, icone_url = ?, banner_url = ?, updated_at = NOW() WHERE id = ?`,
-		existing.Nome, existing.Descricao, existing.Visibilidade, existing.IconeURL, existing.BannerURL, id,
+		`UPDATE comunidade SET nome = ?, descricao = ?, categoria = ?, visibilidade = ?, icone_url = ?, banner_url = ?, updated_at = NOW() WHERE id = ?`,
+		existing.Nome, existing.Descricao, existing.Categoria, existing.Visibilidade, existing.IconeURL, existing.BannerURL, id,
 	)
 	if err != nil {
 		return nil, err

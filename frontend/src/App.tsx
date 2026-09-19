@@ -15,6 +15,14 @@ import ConfirmarEmail from './pages/ConfirmarEmail';
 import FloatingVoiceWidget from './components/FloatingVoiceWidget';
 import PresenceHeartbeat from './components/PresenceHeartbeat';
 import Landing from './pages/Landing';
+import useDesktopNotifications from './hooks/useDesktopNotifications';
+
+// Só existe pra poder usar o hook (hooks não rodam soltos em JSX) — ver
+// hooks/useDesktopNotifications.ts pro "🔔 Resenha: fulano entrou na sala".
+function DesktopNotifications() {
+  useDesktopNotifications();
+  return null;
+}
 
 // Componente que redireciona usuarios logados para o dashboard
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -90,6 +98,7 @@ export default function App() {
     <AuthProvider>
       <VoiceCallProvider>
         <PresenceHeartbeat />
+        <DesktopNotifications />
         <AppRoutes />
         <FloatingVoiceWidget />
       </VoiceCallProvider>

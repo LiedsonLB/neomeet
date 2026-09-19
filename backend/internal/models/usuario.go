@@ -45,7 +45,23 @@ type Usuario struct {
 	// Descricao é a "bio" que a pessoa pode escrever no perfil dela — ver
 	// EditarPerfilModal.tsx e PerfilUsuarioModal.tsx (ao ver o perfil de
 	// outra pessoa). Adicionado em 0005_visibilidade_som.up.sql.
-	Descricao       *string    `json:"descricao" db:"descricao"`
+	Descricao *string `json:"descricao" db:"descricao"`
+
+	// ---- Perfil rico (0007_perfil_rico) ---------------------------------
+	// Links e Jogos são guardados como JSON puro na coluna (TEXT) — o
+	// front manda/recebe já como array, o Go só passa a string adiante
+	// (ver LinksList/JogosList abaixo pra quem quiser manipular em Go).
+	Links *string `json:"links" db:"links"` // JSON: [{"label":"GitHub","url":"..."}]
+	Jogos *string `json:"jogos" db:"jogos"` // JSON: ["Minecraft","Valorant"]
+	// StatusCustomizado é a "bio curta" mostrada junto do nome (estilo
+	// status do Discord/WhatsApp), ex.: "fazendo código e resenha".
+	StatusCustomizado *string `json:"status_customizado" db:"status_customizado"`
+	// Atividade/AtividadeTipo alimentam a presença rica (ver
+	// PresencaBadge.tsx): AtividadeTipo é "jogo" | "voz" | "" (vazio =
+	// só "disponível", sem atividade específica agora).
+	Atividade     *string `json:"atividade" db:"atividade"`
+	AtividadeTipo *string `json:"atividade_tipo" db:"atividade_tipo"`
+
 	Perfil          int        `json:"perfil" db:"perfil"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at" db:"email_verified_at"`
 	CreatedAt       *time.Time `json:"created_at" db:"created_at"`

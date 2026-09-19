@@ -1,6 +1,6 @@
 // ComunidadeRoom.tsx
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Hash, Volume2, Plus, Settings, Mic, MicOff, Headphones, HeadphoneOff, Video, ScreenShare, PhoneOff, X,
   MessageSquare, Loader2,
@@ -29,6 +29,8 @@ type ParticipanteExibicao = ParticipanteInfo & { isLocal: boolean };
 
 export default function ComunidadeRoom() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canalAutoEntrarId = searchParams.get('canal');
   const comunidadeId = Number(id);
   const { session, usuario } = useAuth();
   const navigate = useNavigate();
@@ -108,6 +110,16 @@ export default function ComunidadeRoom() {
       if (primeiroTexto) setCanalTextoAtivoId(primeiroTexto.id);
     }
   }, [canais, canalTextoAtivoId]);
+
+  // Vindo da seção "O que está rolando agora" do Dashboard (?canal=ID) —
+  // entra direto no canal de voz assim que a lista de canais carregar.
+  useEffect(() => {
+    if (!canalAutoEntrarId || !ehMembro || canais.length === 0) return;
+    const canal = canais.find(c => c.id === Number(canalAutoEntrarId) && c.tipo === 'voz');
+    if (canal) abrirCanalVoz(canal);
+    setSearchParams(params => { params.delete('canal'); return params; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canalAutoEntrarId, ehMembro, canais]);
 
   // Poll leve pra manter a contagem/lista de quem está em cada canal de
   // voz atualizada mesmo sem eu estar conectado (ver quem está na call

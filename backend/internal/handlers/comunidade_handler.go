@@ -65,7 +65,7 @@ func (h *ComunidadeHandler) Explorar(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, "Não autenticado.", 401)
 		return
 	}
-	list, err := h.repo.ListExplorar(session.ID)
+	list, err := h.repo.ListExplorar(session.ID, r.URL.Query().Get("categoria"))
 	if err != nil {
 		httpx.Error(w, "Erro interno.", 500)
 		return
@@ -102,6 +102,8 @@ func (h *ComunidadeHandler) Find(w http.ResponseWriter, r *http.Request) {
 type comunidadePayload struct {
 	Nome         string  `json:"nome"`
 	Descricao    *string `json:"descricao"`
+	// Categoria é livre, mas o frontend sugere as de models.CategoriasComunidade.
+	Categoria    *string `json:"categoria"`
 	Visibilidade *string `json:"visibilidade"` // "publica" | "privada"
 	IconeURL     *string `json:"icone_url"`
 	BannerURL    *string `json:"banner_url"`
@@ -125,7 +127,7 @@ func (h *ComunidadeHandler) Save(w http.ResponseWriter, r *http.Request) {
 	if payload.Visibilidade != nil && *payload.Visibilidade == models.VisibilidadePrivada {
 		visibilidade = models.VisibilidadePrivada
 	}
-	created, err := h.repo.Create(payload.Nome, payload.Descricao, payload.IconeURL, payload.BannerURL, visibilidade, session.ID)
+	created, err := h.repo.Create(payload.Nome, payload.Descricao, payload.IconeURL, payload.BannerURL, payload.Categoria, visibilidade, session.ID)
 	if err != nil {
 		writeAppErr(w, err)
 		return
@@ -178,7 +180,7 @@ func (h *ComunidadeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		nome = &payload.Nome
 	}
 	updated, err := h.repo.Update(id, repository.ComunidadeUpdate{
-		Nome: nome, Descricao: payload.Descricao, Visibilidade: payload.Visibilidade,
+		Nome: nome, Descricao: payload.Descricao, Categoria: payload.Categoria, Visibilidade: payload.Visibilidade,
 		IconeURL: payload.IconeURL, BannerURL: payload.BannerURL,
 	})
 	if err != nil {
