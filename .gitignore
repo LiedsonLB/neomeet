@@ -4,5 +4,9 @@
 **/.env.*
 
 frontend/node_modules
+frontend/dist
+frontend/public
 
-desktop-app/
+desktop-app/build
+desktop-app/release
+desktop-app/node_modules

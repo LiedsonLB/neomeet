@@ -29,7 +29,7 @@ import { useAuth } from '../auth/AuthContext';
 const WINDOWS_DOWNLOAD = {
   url: 'https://github.com/LiedsonLB/neomeet/releases/download/v1.0.0/Resenha.1.0.0.exe',
   version: '1.0.0',
-  size: '', // ex.: '78 MB' — deixe vazio pra não mostrar
+  size: '78 MB', // ex.: '78 MB' — deixe vazio pra não mostrar
   requisito: 'Windows 10 ou superior (64 bits)',
 };
 
