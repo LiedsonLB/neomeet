@@ -32,7 +32,12 @@ interface VoiceRoomEmbedProps {
   cameraLigada: boolean;
   compartilhandoTela: boolean;
   onToggleCamera: () => void;
-  onToggleScreenShare: () => void;
+  onToggleScreenShare: (opcoes?: { resolution?: 'hd' | 'fhd' | 'qhd'; frameRate?: 15 | 30 | 60 }) => void;
+  /** Aviso sobre o último compartilhamento de tela (ex.: "foi sem áudio
+   * porque..."), vindo de useVoiceChannel.ts — só repassado adiante pro
+   * VoiceConferenceCustom, que é quem desenha o banner. */
+  avisoTela?: string | null;
+  onDismissAviso?: () => void;
   gravando: Record<string, boolean>;
   onParticipantVolumeChange: (identity: string, volume: number) => void;
   onToggleLocalMute: (identity: string) => void;
@@ -47,6 +52,8 @@ export default function VoiceRoomEmbed({
   compartilhandoTela,
   onToggleCamera,
   onToggleScreenShare,
+  avisoTela,
+  onDismissAviso,
   gravando,
   onParticipantVolumeChange,
   onToggleLocalMute,
@@ -72,6 +79,8 @@ export default function VoiceRoomEmbed({
               compartilhandoTela={compartilhandoTela}
               onToggleCamera={onToggleCamera}
               onToggleScreenShare={onToggleScreenShare}
+              avisoTela={avisoTela}
+              onDismissAviso={onDismissAviso}
               gravando={gravando}
               onParticipantVolumeChange={onParticipantVolumeChange}
               onToggleLocalMute={onToggleLocalMute}

@@ -537,6 +537,8 @@ export default function ComunidadeRoom() {
               compartilhandoTela={voz.compartilhandoTela}
               onToggleCamera={voz.toggleCamera}
               onToggleScreenShare={voz.toggleScreenShare}
+              avisoTela={voz.avisoTela}
+              onDismissAviso={voz.dismissAvisoTela}
               gravando={voz.gravando}
               onParticipantVolumeChange={voz.setParticipantVolume}
               onToggleLocalMute={voz.toggleLocalMute}

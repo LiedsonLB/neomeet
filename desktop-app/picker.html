@@ -1,26 +1,61 @@
-<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<style>
-  body { margin:0; background:#1e1f22; color:#fff; font-family:sans-serif; }
-  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; padding:16px; }
-  .card { cursor:pointer; border:2px solid transparent; border-radius:8px; overflow:hidden; background:#2b2d31; }
-  .card.selected { border-color:#5865f2; }
-  .card img { width:100%; display:block; }
-  .card p { margin:6px; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .footer { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; }
-  label { font-size:13px; }
-  button { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; }
-  #compartilhar { background:#5865f2; color:#fff; }
-  #cancelar { background:#4e5058; color:#fff; }
-</style></head>
+<!-- picker.html -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Compartilhar tela</title>
+  <style>
+    body { margin: 0; background: #1e1f22; color: #fff; font-family: system-ui, sans-serif; padding: 16px; }
+    h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+    #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; max-height: 320px; overflow-y: auto; }
+    .card { cursor: pointer; border: 2px solid transparent; border-radius: 8px; padding: 6px; text-align: center; }
+    .card img { width: 100%; border-radius: 4px; display: block; }
+    .card p { margin: 4px 0 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card.selected { border-color: #635bff; background: rgba(99, 91, 255, 0.15); }
+    .rodape { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+    label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; }
+    #compartilhar { background: #635bff; color: #fff; }
+    #compartilhar:disabled { background: #3a3a3a; color: #888; cursor: not-allowed; }
+    #cancelar { background: transparent; color: #ccc; border: 1px solid #444; }
+  </style>
+</head>
 <body>
-  <div class="grid" id="grid"></div>
-  <div class="footer">
-    <label><input type="checkbox" id="audio" checked> Compartilhar áudio do sistema</label>
+  <h3>Escolha o que compartilhar</h3>
+  <div id="grid"></div>
+  <div class="rodape">
+    <!-- Marcado por padrão — a captura agora é via loopback do SO (ver
+         main.js), então funciona pra tela inteira, janela ou guia, não
+         só pra guia como no navegador. -->
+    <label><input type="checkbox" id="audio" checked /> Compartilhar com áudio do sistema</label>
     <div>
       <button id="cancelar">Cancelar</button>
-      <button id="compartilhar">Compartilhar</button>
+      <button id="compartilhar" disabled>Compartilhar</button>
     </div>
   </div>
-  <script src="picker-renderer.js"></script>
-</body></html>
+  <script>
+    let selecionado = null;
+    window.pickerAPI.onFontes((fontes) => {
+      const grid = document.getElementById("grid");
+      fontes.forEach((f) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `<img src="${f.thumbnail}"><p>${f.name}</p>`;
+        card.onclick = () => {
+          document.querySelectorAll(".card").forEach(c => c.classList.remove("selected"));
+          card.classList.add("selected");
+          selecionado = f.id;
+          document.getElementById("compartilhar").disabled = false;
+        };
+        grid.appendChild(card);
+      });
+    });
+    document.getElementById("compartilhar").onclick = () => {
+      if (!selecionado) return;
+      window.pickerAPI.escolher(selecionado, document.getElementById("audio").checked);
+    };
+    document.getElementById("cancelar").onclick = () => window.pickerAPI.cancelar();
+    window.pickerAPI.pronto();
+  </script>
+</body>
+</html>

@@ -10,3 +10,6 @@ frontend/public
 desktop-app/build
 desktop-app/release
 desktop-app/node_modules
+
+*.pfx
+*.p12

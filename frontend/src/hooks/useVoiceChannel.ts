@@ -76,6 +76,10 @@ export function useVoiceChannel() {
   // iniciarGravacaoAudio/pararEBaixarGravacaoAudio) — só usado pra pintar
   // o ícone de "gravando" no menu de contexto do participante.
   const [gravando, setGravando] = useState<Record<string, boolean>>({});
+  // Aviso sobre o ÚLTIMO compartilhamento de tela iniciado — hoje só usado
+  // pra avisar quando o navegador/SO não entregou áudio de sistema junto
+  // (ver comentário em toggleScreenShare). `null` = nada a mostrar.
+  const [avisoTela, setAvisoTela] = useState<string | null>(null);
 
   const volumesRef = useRef<Record<string, number>>({});
   const mutadosRef = useRef<Set<string>>(new Set());
@@ -189,6 +193,7 @@ export function useVoiceChannel() {
     setCompartilhandoTela(false);
     setCameraLigada(false);
     setGravando({});
+    setAvisoTela(null);
   }, []);
 
   const connect = useCallback(async (
@@ -222,6 +227,7 @@ export function useVoiceChannel() {
     setComunidadeNome(novaComunidadeNome ?? '');
     setCompartilhandoTela(false);
     setCameraLigada(false);
+    setAvisoTela(null);
     volumesRef.current = {};
     mutadosRef.current = new Set();
     deafenedRef.current = deafened;
@@ -309,7 +315,7 @@ export function useVoiceChannel() {
     // e precisamos refletir isso no estado (senão o botão fica "ligado"
     // pra sempre).
     r.on(RoomEvent.LocalTrackUnpublished, (pub) => {
-      if (pub.source === Track.Source.ScreenShare) setCompartilhandoTela(false);
+      if (pub.source === Track.Source.ScreenShare) { setCompartilhandoTela(false); setAvisoTela(null); }
       if (pub.source === Track.Source.Camera) setCameraLigada(false);
       refreshParticipantes();
     });
@@ -436,8 +442,29 @@ export function useVoiceChannel() {
    *
    * `opcoes` deixa escolher resolução/FPS antes de compartilhar — "tela
    * inteira / janela" e "áudio do sistema" já são escolhidos no próprio
-   * picker nativo do navegador (ou do Electron, ver desktop-app/picker.html),
-   * que abre automaticamente pelo setScreenShareEnabled abaixo. */
+   * picker nativo do navegador (ou do Electron, ver desktop-app/main/
+   * screenSharePicker.js), que abre automaticamente pelo
+   * setScreenShareEnabled abaixo.
+   *
+   * IMPORTANTE sobre áudio de tela cheia: o `systemAudio: 'include'` só
+   * avisa o Chrome pra deixar o toggle "Compartilhar áudio do sistema"
+   * pré-marcado — quem decide se ele REALMENTE existe é o navegador/SO:
+   *   - Windows (Chrome/Edge/Opera): áudio de sistema funciona pra "Tela
+   *     inteira" e pra "Guia" — NÃO funciona pra "Janela" (limitação do
+   *     Chromium, não é bug nosso).
+   *   - macOS: áudio de sistema só funciona pra "Guia do Chrome"; "Tela
+   *     inteira" e "Janela" nunca têm áudio no navegador nesse SO.
+   *   - Linux: historicamente só "Guia" tinha áudio; distros recentes com
+   *     PipeWire já conseguem áudio de tela inteira em alguns casos.
+   * Isso explica o comportamento "só funciona em guia/janela, não em tela
+   * inteira" — é o navegador, não o LiveKit nem esse código. No app
+   * desktop (Electron) isso é resolvido à parte: o processo principal
+   * intercepta o pedido e usa `audio: 'loopback'`, que captura o áudio do
+   * sistema inteiro não importa a fonte escolhida (ver
+   * desktop-app/main/screenSharePicker.js) — por isso mesmo esse mesmo
+   * `setScreenShareEnabled` funciona sem nenhuma ramificação específica
+   * pra Electron aqui.
+   */
   const toggleScreenShare = useCallback(async (opcoes?: { resolution?: 'hd' | 'fhd' | 'qhd'; frameRate?: 15 | 30 | 60 }) => {
     const r = roomRef.current;
     if (!r) return;
@@ -451,15 +478,27 @@ export function useVoiceChannel() {
         const resolucao = opcoes?.resolution ? resolucoes[opcoes.resolution] : undefined;
         await r.localParticipant.setScreenShareEnabled(true, {
           audio: true,
+          // Só tem efeito em Chrome/Edge/Opera — pré-marca o toggle de
+          // áudio de sistema no seletor nativo do navegador.
+          systemAudio: 'include',
           resolution: resolucao ? { ...resolucao, frameRate: opcoes?.frameRate ?? 30 } : undefined,
         });
         setCompartilhandoTela(true);
         sounds.compartilharTela();
         const payload = new TextEncoder().encode(JSON.stringify({ type: 'tela-compartilhada' }));
         void r.localParticipant.publishData(payload, { reliable: true });
+
+        // O pedido de áudio foi feito, mas o navegador/SO pode simplesmente
+        // não entregar (ver comentário acima) — a única forma de saber é
+        // checar se a faixa ScreenShareAudio realmente foi publicada.
+        const temAudioDeTela = !!r.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+        setAvisoTela(temAudioDeTela
+          ? null
+          : 'Esse compartilhamento foi sem áudio do sistema. No navegador, isso só é suportado pra "guia" (e, no Windows, pra "tela inteira") — "janela" nunca tem áudio. No app desktop, marque a opção de áudio no seletor antes de compartilhar.');
       } else {
         await r.localParticipant.setScreenShareEnabled(false);
         setCompartilhandoTela(false);
+        setAvisoTela(null);
       }
     } catch (e) {
       // Pessoa cancelou o picker de tela do navegador, ou não deu
@@ -467,6 +506,8 @@ export function useVoiceChannel() {
       console.debug('[VoiceChannel] Erro ao compartilhar tela (ignorado):', e);
     }
   }, [compartilhandoTela]);
+
+  const dismissAvisoTela = useCallback(() => setAvisoTela(null), []);
 
   /** Começa a gravar o áudio recebido de UM participante remoto (usado no
    * menu de contexto do card dele, ver VoiceConferenceCustom.tsx). Grava
@@ -544,6 +585,8 @@ export function useVoiceChannel() {
     compartilhandoTela,
     cameraLigada,
     gravando,
+    avisoTela,
+    dismissAvisoTela,
     connect,
     disconnect,
     toggleMuted,

@@ -34,8 +34,14 @@
       "build/**/*"
     ],
     "win": {
-      "target": ["portable"],
-      "icon": "build/resenha.ico"
+      "target": [
+        "portable"
+      ],
+      "icon": "build/resenha.ico",
+      "signtoolOptions": {
+        "certificateFile": "777.pfx",
+        "certificatePassword": ""
+      }
     },
     "nsis": {
       "oneClick": false,
@@ -43,12 +49,17 @@
       "createDesktopShortcut": true
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Network",
       "icon": "build/resenha_icon.png"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/resenha_icon.icns"
     }
   }
